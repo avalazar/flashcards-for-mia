@@ -5,6 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Flashcards</title>
   <link rel="stylesheet" href="style.css" />
+  <script>
+    // Inline and in the head on purpose: this must run before the first paint, or a
+    // night-theme user sees a flash of cream on every page load. The value is only a
+    // cache for instant application; the account's setting is still the source of
+    // truth and is applied once it arrives.
+    try {
+      var t = localStorage.getItem('theme');
+      if (t === 'garden' || t === 'night') document.documentElement.dataset.theme = t;
+    } catch (e) { /* private browsing can refuse localStorage; the default is fine */ }
+  </script>
 </head>
 <body>
   <div id="app">
@@ -70,6 +80,17 @@
           <p class="profile-name" id="settings-username"></p>
           <p class="hint">Your sets and settings are saved to this account.</p>
         </div>
+      </div>
+
+      <h3 class="section-head">Appearance</h3>
+      <div class="card">
+        <label class="field">
+          <span>Theme</span>
+          <select id="opt-theme" onchange="saveSetting('theme', this.value)">
+            <option value="garden">Garden &mdash; cream and green</option>
+            <option value="night">Night &mdash; the original dark scheme</option>
+          </select>
+        </label>
       </div>
 
       <h3 class="section-head">Studying</h3>
@@ -200,7 +221,7 @@
       </div>
     </div>
 
-    <!-- ── 5. Mode select ────────────────────────────────────── -->
+    <!-- ── 5. Pick a mode ───────────────────────────────────── -->
     <div id="mode-screen" class="screen hidden">
       <header class="topbar">
         <div>
@@ -210,17 +231,50 @@
         <button class="btn btn-quiet" onclick="showDashboard()">Back</button>
       </header>
 
+      <h3 class="section-head">How do you want to study?</h3>
+      <div id="mode-list" class="mode-list"></div>
+
+      <div class="list-head">
+        <h3 class="section-head">Cards in this set</h3>
+        <div class="list-actions">
+          <label id="sort-wrap" class="sort-wrap">
+            <span>Sort by</span>
+            <select id="card-sort" onchange="renderCardList()">
+              <option value="missed">Most missed</option>
+              <option value="order">Order in set</option>
+              <option value="alpha">A to Z</option>
+            </select>
+          </label>
+          <button id="star-filter" class="star-cell" onclick="toggleStarFilter()"></button>
+          <span id="card-list-actions" class="list-actions"></span>
+        </div>
+      </div>
+      <p id="card-list-note" class="hint"></p>
+      <p id="card-list-error" class="error hidden"></p>
+      <div id="card-list" class="card-list"></div>
+    </div>
+
+    <!-- ── 5b. Session options, once a mode is chosen ────────── -->
+    <div id="options-screen" class="screen hidden">
+      <header class="topbar">
+        <div>
+          <h2 id="options-mode-label"></h2>
+          <p id="options-meta" class="subtitle"></p>
+        </div>
+        <button class="btn btn-quiet" onclick="backToModes()">Back</button>
+      </header>
+
       <div class="card">
         <label class="check">
           <input id="opt-shuffle" type="checkbox" checked />
           <span>Shuffle the cards</span>
         </label>
         <label class="check">
-          <input id="opt-missed" type="checkbox" onchange="renderModeList()" />
+          <input id="opt-missed" type="checkbox" onchange="renderOptions()" />
           <span>Only cards I have missed before <em id="opt-missed-count"></em></span>
         </label>
         <label class="check">
-          <input id="opt-starred" type="checkbox" onchange="renderModeList()" />
+          <input id="opt-starred" type="checkbox" onchange="renderOptions()" />
           <span>Only starred cards <em id="opt-starred-count"></em></span>
         </label>
         <label class="field">
@@ -246,8 +300,10 @@
         </div>
       </div>
 
-      <h3 class="section-head">Pick a mode</h3>
-      <div id="mode-list" class="mode-list"></div>
+      <p id="options-note" class="error hidden"></p>
+      <div class="row-actions row-actions-end">
+        <button id="start-btn" class="btn btn-wide" onclick="beginSession()">Start studying</button>
+      </div>
     </div>
 
     <!-- ── 6. Study ──────────────────────────────────────────── -->
@@ -287,6 +343,29 @@
       </div>
     </div>
 
+  </div>
+
+  <div class="grass" aria-hidden="true">
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <!-- One tile of lawn, 120px wide. No viewBox, so a user unit is a pixel and
+             the tile repeats at its natural size instead of stretching on wide
+             screens. Blades vary in height and lean both ways on purpose: uniform
+             blades all leaning one way read as a comb rather than as grass. -->
+        <pattern id="grass-tile" width="120" height="56" patternUnits="userSpaceOnUse">
+          <path class="grass-blade-a" d="M6 47 C 8 36, 14 22, 28 9 C 20 24, 16 36, 16 47 Z"/>
+          <path class="grass-blade-b" d="M20 47 C 18 38, 16 28, 10 17 C 20 30, 26 38, 30 47 Z"/>
+          <path class="grass-blade-a" d="M34 47 C 32 34, 30 20, 24 5 C 34 22, 40 34, 44 47 Z"/>
+          <path class="grass-blade-b" d="M48 47 C 50 40, 56 30, 66 22 C 58 32, 54 40, 58 47 Z"/>
+          <path class="grass-blade-a" d="M62 47 C 64 36, 70 22, 84 8 C 76 24, 72 36, 72 47 Z"/>
+          <path class="grass-blade-b" d="M76 47 C 74 38, 72 26, 66 14 C 76 28, 82 38, 86 47 Z"/>
+          <path class="grass-blade-b" d="M90 47 C 92 38, 98 26, 108 16 C 100 28, 96 38, 100 47 Z"/>
+          <path class="grass-blade-a" d="M104 47 C 102 34, 100 20, 96 6 C 104 22, 110 34, 114 47 Z"/>
+          <rect class="grass-ground" x="0" y="44" width="120" height="12"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grass-tile)"/>
+    </svg>
   </div>
 
   <div id="toast" class="toast hidden"></div>

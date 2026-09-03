@@ -4,10 +4,18 @@ const CHOICE_COUNT = 4;
 
 STUDY_MODES.push({
   id: 'choice',
-  label: 'Multiple choice',
+  label: 'Quiz',
   // Needs enough cards to build distractors from.
   minCards: CHOICE_COUNT,
-  description: 'Pick the right answer from four options.',
+
+  // A list of options with one ticked.
+  icon: [
+    'M3 6.5a2 2 0 1 0 4 0a2 2 0 1 0-4 0',
+    'M3 12a2 2 0 1 0 4 0a2 2 0 1 0-4 0',
+    'M3 17.5a2 2 0 1 0 4 0a2 2 0 1 0-4 0',
+    'M4 12l.9 1l1.6-2',
+    'M10.5 6.5h11', 'M10.5 12h11', 'M10.5 17.5h11',
+  ],
 
   // How long a correct pick rests on screen before moving on by itself.
   advanceDelay: 1000,

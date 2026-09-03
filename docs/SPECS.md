@@ -24,6 +24,15 @@ Two free-tier limits shape the design:
    about 400 hours at the 0.25 CU minimum. A ping that touched the database would hold Neon awake
    ~730 h/month and exhaust the quota.
 
+## 3b. Appearance
+Two themes, chosen per user and stored on the account: **Garden** (cream and leaf green, the
+default, with a grass strip fixed along the bottom of the viewport) and **Night** (the original dark
+scheme). Every colour in the stylesheet resolves through a custom property, and a theme is one block
+of those properties keyed on `[data-theme]`, so no rule is written twice.
+
+The remembered theme is applied by an inline script in `<head>` before the first paint, so switching
+pages does not flash the default; the account setting is authoritative once loaded.
+
 ## 4. Accounts
 * Open signup with a **username and password**. No email address is collected, so there is nothing
   to verify and no address to look after.
@@ -60,6 +69,10 @@ Modes self-register into a global `STUDY_MODES` array from their own file in `pu
 new mode or study game is one new file plus one `<script>` tag in `index.html`. No changes to
 existing modes or to the study screen are needed.
 
+Each mode also supplies an optional `icon`: an array of SVG path data on a 24x24 grid, stroked in
+the accent colour. The client builds these with `createElementNS`, so no part of the app needs
+`innerHTML`.
+
 A mode object is:
 
 ```js
@@ -78,8 +91,13 @@ Shipped modes:
   again, then left marks it missed and right marks it known. Clicking the card and pressing space
   also flip, but nothing outside the arrow keys is required. Left and right do nothing until the
   answer has been shown, so a stray press cannot score a card that was never read.
-* **Type the answer** - the user types the answer; graded with forgiving matching.
+* **Type the answer** - the user types the answer; graded with forgiving matching. The verdict is
+  shown on the card itself rather than in a block below it, and both states render the same three
+  pieces (card, input, action row), so the button being aimed at never moves when an answer is
+  checked.
 * **Multiple choice** - four options, distractors sampled from other cards in the same set.
+
+Modes are labelled with one word each -- Flashcards, Write, Quiz -- and an icon.
 
 ## 7b. Starring
 Any card can be starred from the star in the top-right corner of the card itself while studying,
@@ -102,7 +120,17 @@ Editing a set updates the cards that are still listed **in place** rather than d
 recreating them, so stars and progress survive an edit. Cards the editor no longer lists are
 deleted, and their stars and progress go with them.
 
-Session options: shuffle, missed-cards-only, starred-only, and which side is the question (show the term and
+Choosing what to study is two steps. **Step one** shows the set: the three modes, and beneath them
+every card with its definition, how often it has been missed and its star. That list has its own
+view controls -- a sort (most missed, order in set, A to Z) and a star toggle that shows only
+starred cards -- which change what is being looked at, not what will be studied. An **Edit** button
+turns the list into a working copy where card text can be changed inline and cards ticked for
+removal; saving sends one reconciling update, so surviving cards keep their stars and progress.
+Editing always covers the whole set, and the view controls are hidden while it is open, because
+saving a filtered subset would make the reconciling update treat every hidden card as deleted.
+
+**Step two** appears once a mode is chosen and holds the session's own choices: shuffle,
+missed-cards-only, starred-only, and which side is the question (show the term and
 answer with the definition, or the reverse). The mode select screen previews a real card from the
 set laid out the chosen way, so the setting is concrete rather than something to infer. The
 missed-only and starred-only filters narrow together, so ticking both gives starred cards that have

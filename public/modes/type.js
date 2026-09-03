@@ -1,9 +1,15 @@
 // Type the answer: graded with the forgiving matching in grade.js.
 STUDY_MODES.push({
   id: 'type',
-  label: 'Type the answer',
-  description: 'Write the answer out. Small typos are forgiven.',
+  label: 'Write',
   minCards: 1,
+
+  // A keyboard.
+  icon: [
+    'M3 7.5h18a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1Z',
+    'M6 11h.01', 'M9 11h.01', 'M12 11h.01', 'M15 11h.01', 'M18 11h.01',
+    'M8 14h8',
+  ],
 
   // How long a correct answer rests on screen before moving on by itself.
   advanceDelay: 1000,
@@ -98,14 +104,21 @@ STUDY_MODES.push({
     const ctx = this.ctx;
     const card = ctx.cards[this.index];
     const prompt = ctx.direction === 'definitionFirst' ? card.definition : card.term;
+    const checked = this.state === 'checked';
 
     ctx.root.innerHTML = '';
     ctx.root.appendChild(el('p', 'study-counter', `Card ${this.index + 1} of ${ctx.cards.length}`));
 
-    const box = el('div', 'flashcard flashcard-prompt');
-    box.appendChild(el('span', 'flashcard-label',
-      ctx.direction === 'definitionFirst' ? 'Which term is this?' : 'Define this term'));
-    box.appendChild(el('p', 'flashcard-text', prompt));
+    // The result is shown on the card itself rather than in a block underneath. A block
+    // appearing below would push the button row down the moment an answer is checked,
+    // which is distracting when the next thing you want to press has just moved.
+    // Both states render the same three pieces -- card, input, action row -- so nothing
+    // shifts position between answering and being marked.
+    const box = el('div', 'flashcard flashcard-prompt'
+      + (checked ? (this.result.correct ? ' flashcard-right' : ' flashcard-wrong') : ''));
+    box.appendChild(el('span', 'flashcard-label', checked ? this.verdictLabel() :
+      (ctx.direction === 'definitionFirst' ? 'Which term is this?' : 'Define this term')));
+    box.appendChild(el('p', 'flashcard-text', checked ? this.result.expected : prompt));
     ctx.root.appendChild(box);
     // Reported after the card is in the DOM, so the star button can be mounted inside it.
     ctx.onCardShown?.(card);
@@ -116,7 +129,7 @@ STUDY_MODES.push({
     input.type = 'text';
     input.autocomplete = 'off';
     input.placeholder = 'Your answer';
-    if (this.state === 'checked') {
+    if (checked) {
       input.value = this.answerGiven || '';
       input.disabled = true;
     }
@@ -128,22 +141,10 @@ STUDY_MODES.push({
     };
     ctx.root.appendChild(form);
 
-    if (this.state === 'checked') {
-      const verdict = el('div', 'verdict ' + (this.result.correct ? 'verdict-right' : 'verdict-wrong'));
-      if (this.result.overridden) {
-        verdict.appendChild(el('p', 'verdict-head', 'Counted as correct'));
-      } else if (this.result.correct && this.result.close) {
-        // Covers a typo and a plural alike, so the wording stays true to both.
-        verdict.appendChild(el('p', 'verdict-head', 'Correct — the exact wording is'));
-      } else if (this.result.correct) {
-        verdict.appendChild(el('p', 'verdict-head', 'Correct'));
-      } else {
-        verdict.appendChild(el('p', 'verdict-head', 'Not quite'));
-      }
-      verdict.appendChild(el('p', 'verdict-expected', this.result.expected));
-      ctx.root.appendChild(verdict);
-
-      const actions = el('div', 'study-actions');
+    const actions = el('div', 'study-actions');
+    if (checked) {
+      // Let the user overrule the grader. Definitions are wordy and a correct answer
+      // phrased differently will not match, so the score is not the last word.
       if (!this.result.correct) {
         const iWasRight = el('button', 'btn btn-secondary', 'I was right');
         iWasRight.onclick = () => this.override();
@@ -153,12 +154,13 @@ STUDY_MODES.push({
         this.index + 1 >= ctx.cards.length ? 'See results' : 'Next card');
       nextBtn.onclick = () => this.next();
       actions.appendChild(nextBtn);
+      actions.appendChild(el('p', 'hint',
+        this.index + 1 >= ctx.cards.length ? 'Enter for the results' : 'Enter for the next card'));
       ctx.root.appendChild(actions);
       // Only take focus when a press is actually needed. A correct answer that will
       // advance on its own should not steal focus.
       if (!this.result.correct || !this.ctx.autoAdvance) nextBtn.focus();
     } else {
-      const actions = el('div', 'study-actions');
       const submit = el('button', 'btn', 'Check');
       submit.onclick = () => { this.answerGiven = input.value; this.check(); };
       actions.appendChild(submit);
@@ -166,5 +168,13 @@ STUDY_MODES.push({
       ctx.root.appendChild(actions);
       input.focus();
     }
+  },
+
+  // The headline shown on the card once an answer has been marked.
+  verdictLabel() {
+    if (this.result.overridden) return 'Counted as correct';
+    // Covers a typo and a plural alike, so the wording stays true to both.
+    if (this.result.correct && this.result.close) return 'Correct \u2014 the exact wording is';
+    return this.result.correct ? 'Correct' : 'Not quite';
   },
 });

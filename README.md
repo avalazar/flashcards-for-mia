@@ -15,14 +15,19 @@ auto-populated from a spreadsheet upload.
   (with forgiving typo matching), and multiple choice. Shuffle, "only cards I have missed", and a choice of which side is the question — with a
   preview of a real card from the set so the setting is obvious before starting.
 * **Starring** — star a card from the corner of the card while studying (click it or press **s**),
-  or from the set editor, then study only starred cards. Editing a set preserves stars and progress
-  on the cards that remain.
+  from the card list, or from the set editor, then study only starred cards. Editing a set preserves
+  stars and progress on the cards that remain.
+* **Card list** — every card in a set with its definition, miss count and star, sortable by most
+  missed, set order or A to Z, and filterable to starred only. An **Edit** button allows inline
+  text changes and ticking cards for deletion, committed in one save.
 * **Keyboard driven** — flip cards runs on the four arrow keys, **s** stars, and **Enter** moves to
   the next card once an answer has been given.
 * **Progress tracking** — per-card results, so missed cards can be restudied.
-* **Per-user settings** — reached from the profile button at the top right. Currently whether a
-  correct answer moves on by itself, plus sign out. Settings are stored on the account, so they
+* **Per-user settings** — reached from the profile button at the top right: theme, whether a
+  correct answer moves on by itself, and sign out. Settings are stored on the account, so they
   follow the user between devices rather than living in one browser.
+* **Two themes** — *Garden* (cream and leaf green, with a grass strip along the bottom) is the
+  default; *Night* keeps the original dark scheme.
 
 ## Tech Stack
 
@@ -137,6 +142,24 @@ Run it against production by setting `DATABASE_URL` to the Neon string.
 
 Adding real reset emails later (Resend's free tier is ~3,000/month) only touches `server/auth.js`.
 
+## Theming
+
+Every colour in `public/style.css` comes from a custom property, and a theme is one block of those
+properties (`[data-theme='garden']`, `[data-theme='night']`). Nothing below the theme blocks knows
+which theme is active, so adding a third is one block and one `<option>` — no rule duplication.
+
+Properties are named by **role**, not by hue: `--accent` means "the main action colour", which is
+green in Garden and pink in Night. That is what lets the themes differ in character rather than
+just in lightness.
+
+The theme is applied twice on purpose. A small inline script in `<head>` reads a cached value from
+`localStorage` before the first paint, so a Night user never sees a flash of cream; the account
+setting is then applied once it arrives and is the source of truth.
+
+The grass strip is inline SVG with a `<pattern>` rather than an encoded data URI, so the blades stay
+editable and CSS can recolour them per theme. The `<svg>` has no `viewBox`, which means one user
+unit is one pixel and the tile repeats at its natural size instead of stretching on wide screens.
+
 ## Adding a user setting
 
 Preferences live in a single `settings` jsonb column on `users`, so a new one needs no migration.
@@ -163,6 +186,10 @@ STUDY_MODES.push({
   label: 'Matching game',
   description: 'Pair each term with its definition.',
   minCards: 4,                  // the mode is greyed out below this, with an explanation
+  icon: ['M3 6.5h18', '...'],   // optional: SVG path data on a 24x24 grid, stroked in the
+                                // accent colour. Built with createElementNS, so a mode
+                                // never needs innerHTML. Omit it and the card renders
+                                // without an icon.
   start(ctx) {
     // ctx.cards      - the cards for this session, already shuffled/filtered
     // ctx.allCards   - every card in the set, for drawing distractors

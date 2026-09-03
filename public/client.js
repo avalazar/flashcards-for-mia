@@ -7,10 +7,28 @@ let importData   = null;    // parsed spreadsheet awaiting a column mapping
 let session      = null;    // active study session
 let activeMode   = null;
 let activeModeId = null;    // remembered so "study the missed cards" reuses the same mode
+let pendingMode  = null;    // mode chosen on step one, awaiting the options on step two
 let authMode     = 'login';
 let importTargetPreset = null;   // set when importing straight into an existing set
 
 // ── Small DOM helpers ─────────────────────────────────────────────────────────
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+// Builds an icon from a mode's path data. Paths are built as real SVG nodes rather
+// than assigned as markup, so nothing in this app ever needs innerHTML.
+function iconEl(paths) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('class', 'mode-icon');
+  svg.setAttribute('aria-hidden', 'true');
+  for (const d of paths) {
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', d);
+    svg.appendChild(path);
+  }
+  return svg;
+}
 
 // Builds an element. Text is set via textContent, never innerHTML, so a card that
 // contains something like "<3" or an ampersand renders literally and no user text is
@@ -117,6 +135,7 @@ async function submitAuth(event) {
   try {
     const { user } = await api('POST', `/api/auth/${authMode}`, payload);
     currentUser = user;
+    applyTheme(currentUser.settings.theme);
     document.getElementById('auth-password').value = '';
     await loadDashboard();
   } catch (err) {
@@ -190,6 +209,26 @@ function renderDashboard() {
   }
 }
 
+// ── Theme ─────────────────────────────────────────────────────────────────────
+
+const THEMES = ['garden', 'night'];
+const DEFAULT_THEME = 'garden';
+
+// Sets the theme and remembers it locally, so the next load can apply it before the
+// first paint rather than waiting for the account settings to arrive.
+function applyTheme(theme) {
+  const name = THEMES.includes(theme) ? theme : DEFAULT_THEME;
+  document.documentElement.dataset.theme = name;
+  try {
+    localStorage.setItem('theme', name);
+  } catch { /* private browsing can refuse writes; the theme still applies for now */ }
+}
+
+function currentTheme() {
+  if (currentUser && THEMES.includes(currentUser.settings.theme)) return currentUser.settings.theme;
+  return document.documentElement.dataset.theme || DEFAULT_THEME;
+}
+
 // ── Profile and settings ──────────────────────────────────────────────────────
 
 // The setting the study modes read. Falls back to the default when signed out or when
@@ -210,28 +249,47 @@ function showSettings() {
   document.getElementById('settings-avatar').textContent = currentUser.username.slice(0, 1);
   document.getElementById('settings-username').textContent = currentUser.username;
   document.getElementById('opt-auto-advance').checked = autoAdvanceEnabled();
+  document.getElementById('opt-theme').value = currentTheme();
   showScreen('settings-screen');
 }
 
-// Applies the change straight away, then persists it. On failure the control is put
-// back, so what is on screen always matches what is saved.
+// The control that edits each setting, so saveSetting can disable it while saving and
+// put it back if the save fails.
+const SETTING_CONTROLS = {
+  autoAdvance: 'opt-auto-advance',
+  theme: 'opt-theme',
+};
+
+// Puts a control back in step with what is actually stored.
+function repaintSetting(key) {
+  const input = document.getElementById(SETTING_CONTROLS[key]);
+  if (!input) return;
+  if (key === 'autoAdvance') input.checked = autoAdvanceEnabled();
+  if (key === 'theme') input.value = currentTheme();
+}
+
+// Applies the change straight away, then persists it. On failure the change is undone
+// and the control put back, so what is on screen always matches what is saved.
 async function saveSetting(key, value) {
   if (!currentUser) return;
   const previous = currentUser.settings[key];
   currentUser.settings[key] = value;
+  if (key === 'theme') applyTheme(value);
 
-  const input = document.getElementById('opt-auto-advance');
-  input.disabled = true;
+  const input = document.getElementById(SETTING_CONTROLS[key]);
+  if (input) input.disabled = true;
   try {
     const { settings } = await api('PATCH', '/api/auth/settings', { [key]: value });
     currentUser.settings = settings;
+    if (key === 'theme') applyTheme(settings.theme);
     showToast('Setting saved.', 'ok');
   } catch (err) {
     currentUser.settings[key] = previous;
-    input.checked = autoAdvanceEnabled();
+    if (key === 'theme') applyTheme(previous);
+    repaintSetting(key);
     handleApiError(err);
   } finally {
-    input.disabled = false;
+    if (input) input.disabled = false;
   }
 }
 
@@ -669,10 +727,15 @@ async function openModeSelect(setId) {
     document.getElementById('mode-set-title').textContent = set.title;
     document.getElementById('mode-set-meta').textContent =
       `${set.cards.length} ${set.cards.length === 1 ? 'card' : 'cards'}`;
+    // The study filters live on step two and start clear for each new visit.
     document.getElementById('opt-missed').checked = false;
     document.getElementById('opt-starred').checked = false;
+    pendingMode = null;
+    cardListEditing = false;
+    cardListDraft = null;
+    starFilterOn = false;
+    clearError(document.getElementById('card-list-error'));
     renderModeList();
-    renderDirectionSample();
     showScreen('mode-screen');
   } catch (err) {
     handleApiError(err);
@@ -692,9 +755,9 @@ function starredCards() {
   return currentSet.cards.filter(c => c.starred === true);
 }
 
-// The cards a session would actually use, given the current options. The two filters
-// narrow together, so ticking both gives starred cards that have also been missed.
-function selectedCards() {
+// The cards a session will cover, given the filters on step two. The two narrow
+// together, so ticking both gives starred cards that have also been missed.
+function pooledCards() {
   let base = currentSet.cards;
   if (document.getElementById('opt-missed').checked) {
     base = base.filter(c => c.incorrectCount > 0);
@@ -702,11 +765,16 @@ function selectedCards() {
   if (document.getElementById('opt-starred').checked) {
     base = base.filter(c => c.starred === true);
   }
+  return base;
+}
+
+// The same pool, in the order the session will use.
+function selectedCards() {
+  const base = pooledCards();
   return document.getElementById('opt-shuffle').checked ? shuffled(base) : base.slice();
 }
 
-// Shows a real card from this set, laid out the way the chosen direction will present
-// it, so "which side is the question" does not have to be worked out from the wording.
+// Sets a filter's label and disables it when it would select nothing.
 function setFilterState(inputId, countId, count, emptyLabel) {
   const input = document.getElementById(inputId);
   document.getElementById(countId).textContent = count > 0 ? `(${count})` : `(${emptyLabel})`;
@@ -718,6 +786,36 @@ function setFilterState(inputId, countId, count, emptyLabel) {
   }
 }
 
+// Step one offers the modes against the whole set. Narrowing happens on step two,
+// where renderOptions re-checks that enough cards remain for the mode chosen here.
+function renderModeList() {
+  renderCardList();
+
+  const available = currentSet.cards.length;
+  const list = document.getElementById('mode-list');
+  list.innerHTML = '';
+
+  for (const mode of STUDY_MODES) {
+    const card = el('button', 'mode-card');
+    // A mode without an icon simply renders without one, so adding a mode never
+    // requires drawing artwork first.
+    if (Array.isArray(mode.icon)) card.appendChild(iconEl(mode.icon));
+    card.appendChild(el('h4', 'mode-label', mode.label));
+
+    if (available < mode.minCards) {
+      card.disabled = true;
+      card.classList.add('mode-card-disabled');
+      card.appendChild(el('p', 'mode-note',
+        `Needs at least ${mode.minCards} cards; this set has ${available}.`));
+    } else {
+      card.onclick = () => chooseMode(mode);
+    }
+    list.appendChild(card);
+  }
+}
+
+// Shows a real card from this set, laid out the way the chosen direction will present
+// it, so "which side is the question" does not have to be worked out from the wording.
 function renderDirectionSample() {
   const wrap = document.getElementById('direction-sample');
   if (!currentSet || currentSet.cards.length === 0) {
@@ -727,9 +825,7 @@ function renderDirectionSample() {
 
   // Prefer a card the session would actually include, so the sample is never drawn
   // from a card the filters have excluded.
-  let pool = currentSet.cards;
-  if (document.getElementById('opt-missed').checked) pool = pool.filter(c => c.incorrectCount > 0);
-  if (document.getElementById('opt-starred').checked) pool = pool.filter(c => c.starred === true);
+  const pool = pooledCards();
   const card = pool[0] || currentSet.cards[0];
   const definitionFirst = document.getElementById('opt-direction').value === 'definitionFirst';
 
@@ -738,32 +834,238 @@ function renderDirectionSample() {
   wrap.classList.remove('hidden');
 }
 
-function renderModeList() {
-  // A filter with nothing to offer is disabled rather than left to produce an empty
-  // session, and says why in its own label.
-  setFilterState('opt-missed', 'opt-missed-count', missedCards().length, 'none yet');
-  setFilterState('opt-starred', 'opt-starred-count', starredCards().length, 'none starred');
+// ── Card list ─────────────────────────────────────────────────────────────────
+// Its own view state, separate from the study filters: this decides what is being
+// looked at, not what will be studied.
 
-  renderDirectionSample();
+let starFilterOn = false;
+let cardListEditing = false;
+// While editing, a working copy in *set order*. Display may be sorted differently, but
+// the order sent back decides each card's position, so the draft must keep the real
+// order or saving would silently reshuffle the set.
+let cardListDraft = null;
 
-  const available = selectedCards().length;
-  const list = document.getElementById('mode-list');
+function toggleStarFilter() {
+  starFilterOn = !starFilterOn;
+  renderCardList();
+}
+
+// The cards shown in the list, filtered and sorted by the list's own controls.
+function listedCards() {
+  let cards = currentSet.cards.slice();
+  if (starFilterOn) cards = cards.filter(c => c.starred === true);
+
+  const sort = document.getElementById('card-sort').value;
+  if (sort === 'missed') {
+    // Ties keep their position in the set, since the sort is stable and the server
+    // returns cards in order.
+    cards.sort((a, b) => b.incorrectCount - a.incorrectCount);
+  } else if (sort === 'alpha') {
+    cards.sort((a, b) => a.term.localeCompare(b.term, undefined, { sensitivity: 'base' }));
+  }
+  return cards;   // 'order' is the order the server returned
+}
+
+function renderStarFilterButton() {
+  const button = document.getElementById('star-filter');
+  button.classList.toggle('star-on', starFilterOn);
+  button.textContent = starFilterOn ? '★' : '☆';
+  button.title = starFilterOn ? 'Showing starred only — click to show all' : 'Show starred cards only';
+  button.setAttribute('aria-pressed', String(starFilterOn));
+  button.setAttribute('aria-label', 'Show starred cards only');
+}
+
+function renderCardListActions() {
+  const box = document.getElementById('card-list-actions');
+  box.innerHTML = '';
+  if (!currentSet || currentSet.cards.length === 0) return;
+
+  if (!cardListEditing) {
+    const edit = el('button', 'btn btn-small btn-secondary', 'Edit');
+    edit.onclick = () => startCardEdit();
+    box.appendChild(edit);
+    return;
+  }
+
+  const picked = cardListDraft.filter(card => card.selected).length;
+  const cancel = el('button', 'btn btn-small btn-quiet', 'Cancel');
+  cancel.onclick = () => cancelCardEdit();
+  const save = el('button', 'btn btn-small',
+    picked > 0 ? `Save and delete ${picked}` : 'Save changes');
+  if (picked > 0) save.classList.add('btn-danger');
+  save.onclick = () => saveCardEdits();
+  box.appendChild(cancel);
+  box.appendChild(save);
+}
+
+function renderCardList() {
+  renderCardListActions();
+  renderStarFilterButton();
+
+  const note = document.getElementById('card-list-note');
+  const list = document.getElementById('card-list');
+  const sortWrap = document.getElementById('sort-wrap');
+  const starButton = document.getElementById('star-filter');
   list.innerHTML = '';
 
-  for (const mode of STUDY_MODES) {
-    const card = el('button', 'mode-card');
-    card.appendChild(el('h4', 'mode-label', mode.label));
-    card.appendChild(el('p', 'mode-desc', mode.description));
+  // Editing covers the whole set, so the view controls are put away to avoid
+  // suggesting that only part of it is being edited.
+  sortWrap.classList.toggle('hidden', cardListEditing);
+  starButton.classList.toggle('hidden', cardListEditing);
 
-    if (available < mode.minCards) {
-      card.disabled = true;
-      card.classList.add('mode-card-disabled');
-      card.appendChild(el('p', 'mode-note',
-        `Needs at least ${mode.minCards} cards; this selection has ${available}.`));
-    } else {
-      card.onclick = () => startSession(mode);
-    }
-    list.appendChild(card);
+  if (cardListEditing) {
+    note.textContent = 'Editing the whole set. Tick a card to remove it, then save.';
+    for (const card of cardListDraft) list.appendChild(editableCardRow(card));
+    return;
+  }
+
+  const cards = listedCards();
+  const total = currentSet.cards.length;
+  if (starFilterOn) {
+    note.textContent = cards.length === 0
+      ? 'No starred cards yet. Use the star on a card to mark one.'
+      : `${cards.length} starred of ${total}`;
+  } else {
+    note.textContent = `${total} ${total === 1 ? 'card' : 'cards'}`;
+  }
+  for (const card of cards) list.appendChild(readOnlyCardRow(card));
+}
+
+function readOnlyCardRow(card) {
+  const row = el('div', 'card-row');
+
+  const main = el('div', 'card-row-main');
+  main.appendChild(el('p', 'card-row-term', card.term));
+  main.appendChild(el('p', 'card-row-def', card.definition));
+  row.appendChild(main);
+
+  if (card.incorrectCount > 0) {
+    row.appendChild(el('span', 'miss-badge',
+      `missed ${card.incorrectCount} ${card.incorrectCount === 1 ? 'time' : 'times'}`));
+  } else {
+    row.appendChild(el('span'));   // keeps the star in the same column on every row
+  }
+
+  row.appendChild(starCell(card.starred === true, () =>
+    setStar(card, !(card.starred === true)).then(() => renderCardList())));
+  return row;
+}
+
+function editableCardRow(card) {
+  const row = el('div', 'card-row card-row-editing' + (card.selected ? ' card-row-selected' : ''));
+
+  const pick = el('input', 'card-row-pick');
+  pick.type = 'checkbox';
+  pick.checked = card.selected;
+  pick.title = 'Tick to remove this card';
+  pick.setAttribute('aria-label', `Remove ${card.term}`);
+  pick.onchange = () => {
+    card.selected = pick.checked;
+    row.classList.toggle('card-row-selected', card.selected);
+    renderCardListActions();     // the save button carries the count
+  };
+  row.appendChild(pick);
+
+  for (const side of ['term', 'definition']) {
+    const input = el('input', 'card-row-input');
+    input.type = 'text';
+    input.value = card[side];
+    input.maxLength = 2000;
+    input.placeholder = side === 'term' ? 'Term' : 'Definition';
+    input.oninput = () => { card[side] = input.value; };
+    row.appendChild(input);
+  }
+
+  // Starring stays live while editing: it is a separate, immediate write.
+  row.appendChild(starCell(card.starred, async () => {
+    const next = !card.starred;
+    card.starred = next;
+    const real = currentSet.cards.find(c => c.id === card.id);
+    if (real) await setStar(real, next);
+    renderCardList();
+  }));
+  return row;
+}
+
+function starCell(on, onToggle) {
+  const star = el('button', 'star-cell');
+  star.type = 'button';
+  star.classList.toggle('star-on', on);
+  star.textContent = on ? '★' : '☆';
+  star.title = on ? 'Remove star' : 'Star this card';
+  star.setAttribute('aria-pressed', String(on));
+  star.setAttribute('aria-label', on ? 'Remove star from this card' : 'Star this card');
+  star.onclick = onToggle;
+  return star;
+}
+
+// ── Card list editing ─────────────────────────────────────────────────────────
+
+function startCardEdit() {
+  // Editing always covers the whole set. If the star view filter were applied, the
+  // save would send only the visible cards and the reconciling update would treat
+  // every other card as deleted.
+  starFilterOn = false;
+  cardListDraft = currentSet.cards.map(card => ({
+    id: card.id,
+    term: card.term,
+    definition: card.definition,
+    starred: card.starred === true,
+    incorrectCount: card.incorrectCount,
+    selected: false,
+  }));
+  cardListEditing = true;
+  clearError(document.getElementById('card-list-error'));
+  renderCardList();
+}
+
+function cancelCardEdit() {
+  cardListEditing = false;
+  cardListDraft = null;
+  clearError(document.getElementById('card-list-error'));
+  renderCardList();
+}
+
+async function saveCardEdits() {
+  const errorEl = document.getElementById('card-list-error');
+  clearError(errorEl);
+
+  const keep = cardListDraft.filter(card => !card.selected);
+  const removed = cardListDraft.length - keep.length;
+
+  const blank = keep.findIndex(card => !card.term.trim() || !card.definition.trim());
+  if (blank !== -1) {
+    return showError(errorEl,
+      `"${keep[blank].term.trim() || keep[blank].definition.trim() || 'One card'}" is missing a side. `
+      + 'Fill both in, or tick it for removal.');
+  }
+  if (keep.length === 0) {
+    return showError(errorEl, 'That would remove every card. A set needs at least one.');
+  }
+  // Removal is the only irreversible part, so that is what gets confirmed, and only
+  // when something is actually being removed.
+  if (removed > 0 && !window.confirm(
+      `Delete ${removed} ${removed === 1 ? 'card' : 'cards'} and save your changes? This cannot be undone.`)) {
+    return;
+  }
+
+  try {
+    await api('PATCH', `/api/sets/${currentSetId}`, {
+      cards: keep.map(({ id, term, definition, starred }) => ({ id, term, definition, starred })),
+    });
+    const { set } = await api('GET', `/api/sets/${currentSetId}`);
+    currentSet = set;
+    cardListEditing = false;
+    cardListDraft = null;
+    document.getElementById('mode-set-meta').textContent =
+      `${set.cards.length} ${set.cards.length === 1 ? 'card' : 'cards'}`;
+    renderModeList();
+    loadSetsQuietly();
+    showToast(removed > 0
+      ? `Saved, and removed ${removed} ${removed === 1 ? 'card' : 'cards'}.`
+      : 'Saved.', 'ok');
+  } catch (err) {
+    handleApiError(err, errorEl);
   }
 }
 
@@ -794,7 +1096,7 @@ function renderStarButton() {
   const on = shownCard.starred === true;
   button.classList.remove('hidden');
   button.classList.toggle('star-on', on);
-  button.textContent = on ? '\u2605' : '\u2606';        // filled or outlined star
+  button.textContent = on ? '★' : '☆';
   button.title = on ? 'Remove star (s)' : 'Star this card (s)';
   button.setAttribute('aria-pressed', String(on));
   button.setAttribute('aria-label', on ? 'Remove star from this card' : 'Star this card');
@@ -803,8 +1105,6 @@ function renderStarButton() {
 function onCardShown(card) {
   shownCard = card;
   renderStarButton();
-  // Move the button into the card's corner. The mode clears #study-root on every
-  // render, so this re-homes the same element each time rather than rebuilding it.
   const face = document.querySelector('#study-root .flashcard');
   const button = starEl();
   if (face && button) face.appendChild(button);
@@ -828,20 +1128,24 @@ function onStudyKey(e) {
   toggleStar();
 }
 
-// Flips the star on whichever card is showing. Applied immediately and rolled back if
-// the write fails, so the control never disagrees with what is stored.
-async function toggleStar() {
-  if (!shownCard || !currentSetId) return;
-  const card = shownCard;
-  const next = !(card.starred === true);
+// Writes a card's star. Applied immediately and rolled back if the write fails, so the
+// controls never disagree with what is stored. Shared by the star on the card during a
+// session and the stars in the card list.
+async function setStar(card, next) {
+  if (!card || !currentSetId) return;
   setCardStarred(card.id, next);
-
   try {
     await api('PATCH', `/api/sets/${currentSetId}/cards/${card.id}`, { starred: next });
   } catch (err) {
     setCardStarred(card.id, !next);
     handleApiError(err);
   }
+}
+
+// Flips the star on whichever card is showing during a session.
+function toggleStar() {
+  if (!shownCard) return Promise.resolve();
+  return setStar(shownCard, !(shownCard.starred === true));
 }
 
 // Keeps every copy of the card in step: the cached set, the live session list, and the
@@ -856,6 +1160,51 @@ function setCardStarred(cardId, starred) {
   }
   if (shownCard && shownCard.id === cardId) shownCard.starred = starred;
   renderStarButton();
+}
+
+// ── Session options (step two) ────────────────────────────────────────────────
+
+function chooseMode(mode) {
+  pendingMode = mode;
+  document.getElementById('options-mode-label').textContent = mode.label;
+  renderOptions();
+  showScreen('options-screen');
+}
+
+// The filters live on this step, which means they can narrow the selection below what
+// the chosen mode needs. Rather than let the user press Start and be bounced back, say
+// so here and disable it.
+function renderOptions() {
+  if (!pendingMode || !currentSet) return;
+  setFilterState('opt-missed', 'opt-missed-count', missedCards().length, 'none yet');
+  setFilterState('opt-starred', 'opt-starred-count', starredCards().length, 'none starred');
+  renderDirectionSample();
+
+  const available = selectedCards().length;
+  document.getElementById('options-meta').textContent =
+    `${currentSet.title} · ${available} ${available === 1 ? 'card' : 'cards'}`;
+
+  const note = document.getElementById('options-note');
+  const start = document.getElementById('start-btn');
+  if (available === 0) {
+    showError(note, 'That leaves no cards to study. Untick a filter to widen the selection.');
+    start.disabled = true;
+  } else if (available < pendingMode.minCards) {
+    showError(note, `${pendingMode.label} needs at least ${pendingMode.minCards} cards, and this `
+      + `selection has ${available}. Untick a filter, or go back and choose another mode.`);
+    start.disabled = true;
+  } else {
+    clearError(note);
+    start.disabled = false;
+  }
+}
+
+function beginSession() {
+  if (!pendingMode) return backToModes();
+  // A backstop for the check in renderOptions, so a stale click can never start a
+  // session the mode cannot actually run.
+  if (selectedCards().length < pendingMode.minCards) return renderOptions();
+  startSession(pendingMode);
 }
 
 // ── Study session ─────────────────────────────────────────────────────────────
@@ -1068,6 +1417,7 @@ async function boot() {
   try {
     const { user } = await api('GET', '/api/auth/me');
     currentUser = user;
+    applyTheme(currentUser.settings.theme);
     await loadDashboard();
   } catch {
     // Not signed in, or the server is still waking. Either way, show the sign-in form.

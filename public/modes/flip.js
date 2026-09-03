@@ -9,9 +9,14 @@
 //   direction - 'termFirst' or 'definitionFirst'
 STUDY_MODES.push({
   id: 'flip',
-  label: 'Flip cards',
-  description: 'Reveal the answer, then mark whether you knew it.',
+  label: 'Flashcards',
   minCards: 1,
+
+  // Two stacked cards.
+  icon: [
+    'M6 6h12a2 2 0 0 1 2 2v7',
+    'M3.5 9h12a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 2 17.5v-7A1.5 1.5 0 0 1 3.5 9Z',
+  ],
 
   start(ctx) {
     this.ctx = ctx;
