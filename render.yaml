@@ -1,0 +1,22 @@
+# Render blueprint. One free web service serves both the API and the frontend, which
+# keeps the session cookie first-party (Safari and iOS block third-party cookies) and
+# avoids any CORS setup.
+#
+# The database is deliberately NOT defined here: Render's free PostgreSQL expires 30
+# days after creation and is then deleted. Create a free project at neon.com instead
+# and paste its pooled connection string into DATABASE_URL in the Render dashboard.
+services:
+  - type: web
+    name: flashcards-for-mia
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: node server/index.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATABASE_URL
+        sync: false           # set in the dashboard; never commit a connection string
+      - key: SESSION_SECRET
+        generateValue: true   # Render generates a strong random value
+      - key: NODE_ENV
+        value: production

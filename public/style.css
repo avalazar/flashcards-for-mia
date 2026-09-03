@@ -1,0 +1,331 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Always reserve room for the vertical scrollbar. Without this, revealing an answer
+   makes the page taller than the viewport, the scrollbar appears, and the centred
+   column shifts sideways by its width on every single card. */
+html { scrollbar-gutter: stable; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  line-height: 1.5;
+}
+
+/* Wider than Cambio's 480px: the card editor and the import preview table both
+   need room for two columns of text side by side. */
+#app {
+  width: 100%;
+  max-width: 760px;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.screen { animation: fade 0.15s ease-out; }
+.hidden { display: none !important; }
+
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+h1 {
+  font-size: 2.5rem;
+  letter-spacing: 0.08em;
+  color: #e94560;
+  text-align: center;
+}
+h2 { font-size: 1.5rem; color: #f0f0f0; }
+h3 { font-size: 1.1rem; color: #f0f0f0; }
+h4 { font-size: 1rem; color: #f0f0f0; }
+
+.subtitle { color: #9a9ab0; font-size: 0.9rem; }
+#auth-screen .subtitle { text-align: center; margin-bottom: 1.5rem; }
+
+.lead { color: #c8c8d8; margin-bottom: 0.75rem; }
+.hint { color: #8a8aa0; font-size: 0.8rem; }
+.section-head { margin: 1.5rem 0 0.75rem; color: #9a9ab0; text-transform: uppercase;
+                font-size: 0.75rem; letter-spacing: 0.12em; }
+
+.error {
+  background: #3d1a2a; border-left: 3px solid #e94560; color: #ffb3c0;
+  padding: 0.6rem 0.8rem; border-radius: 4px; font-size: 0.88rem; margin: 0.75rem 0;
+}
+.empty { color: #8a8aa0; text-align: center; padding: 2.5rem 1rem; }
+
+/* ── Layout pieces ────────────────────────────────────────────────────────── */
+
+.topbar {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 1rem; margin-bottom: 1.25rem;
+}
+
+.card {
+  background: #16213e; border: 1px solid #24304f; border-radius: 8px;
+  padding: 1.1rem; margin-bottom: 1rem;
+}
+
+.row-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0; }
+.row-actions-end { justify-content: flex-end; }
+.two-up { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.two-up .field { flex: 1 1 200px; }
+
+/* ── Forms ────────────────────────────────────────────────────────────────── */
+
+.field { display: block; margin-bottom: 0.9rem; }
+.field > span { display: block; font-size: 0.82rem; color: #9a9ab0; margin-bottom: 0.3rem; }
+.field em { color: #6f6f88; font-style: normal; }
+
+/* Matches bare inputs too: an input built in JS without an explicit type attribute
+   is still a text field, and input[type="text"] would not select it. */
+input:not([type="checkbox"]):not([type="file"]), select {
+  width: 100%; padding: 0.6rem 0.7rem; font: inherit; color: #e0e0e0;
+  background: #0f1729; border: 1px solid #2c3a5c; border-radius: 5px;
+}
+input:focus, select:focus, button:focus-visible {
+  outline: 2px solid #e94560; outline-offset: 1px; border-color: #e94560;
+}
+input::placeholder { color: #5c5c78; }
+input:disabled { color: #8a8aa0; background: #131c30; }
+
+input[type="file"] {
+  width: 100%; padding: 0.7rem; color: #c8c8d8;
+  background: #0f1729; border: 1px dashed #2c3a5c; border-radius: 5px;
+}
+
+.check { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.7rem;
+         font-size: 0.9rem; cursor: pointer; }
+.check input { width: 1rem; height: 1rem; accent-color: #e94560; flex: none; }
+.check em { color: #8a8aa0; font-style: normal; }
+
+.tabs { display: flex; gap: 0.4rem; margin-bottom: 1rem; }
+.tab {
+  flex: 1; padding: 0.6rem; font: inherit; cursor: pointer; color: #9a9ab0;
+  background: #16213e; border: 1px solid #24304f; border-radius: 6px;
+}
+.tab-active { background: #e94560; border-color: #e94560; color: #fff; font-weight: 600; }
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+
+.btn {
+  padding: 0.6rem 1.1rem; font: inherit; font-weight: 600; cursor: pointer;
+  color: #fff; background: #e94560; border: 1px solid #e94560; border-radius: 6px;
+}
+.btn:hover:not(:disabled) { background: #d63a54; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-wide { min-width: 8rem; }
+.btn-small { padding: 0.4rem 0.75rem; font-size: 0.85rem; }
+.btn-secondary { background: #22305a; border-color: #2c3a5c; color: #d0d0e0; }
+.btn-secondary:hover:not(:disabled) { background: #2b3b6d; }
+.btn-quiet { background: none; border-color: transparent; color: #9a9ab0; font-weight: 400; }
+.btn-quiet:hover { color: #e0e0e0; background: #1f2a45; }
+.btn-danger { background: #6b1f2f; border-color: #8c2a3f; }
+.btn-danger:hover:not(:disabled) { background: #8c2a3f; }
+.btn-knew { background: #1f6b4f; border-color: #2a8c67; }
+.btn-knew:hover:not(:disabled) { background: #2a8c67; }
+.btn-missed { background: #6b1f2f; border-color: #8c2a3f; }
+.btn-missed:hover:not(:disabled) { background: #8c2a3f; }
+
+.btn-icon {
+  flex: none; width: 2rem; height: 2rem; font-size: 1.2rem; line-height: 1; cursor: pointer;
+  color: #8a8aa0; background: none; border: 1px solid #2c3a5c; border-radius: 5px;
+}
+.btn-icon:hover { color: #e94560; border-color: #e94560; }
+
+/* ── Profile and settings ─────────────────────────────────────────────────── */
+
+.avatar {
+  flex: none; display: grid; place-items: center; cursor: pointer;
+  width: 2.4rem; height: 2.4rem; border-radius: 50%;
+  font: inherit; font-weight: 700; font-size: 0.95rem; text-transform: uppercase;
+  color: #fff; background: #e94560; border: 1px solid #e94560;
+}
+.avatar:hover { background: #d63a54; }
+.avatar-large { width: 3.2rem; height: 3.2rem; font-size: 1.3rem; cursor: default; }
+
+.profile-card { display: flex; align-items: center; gap: 0.9rem; }
+.profile-name { font-size: 1.05rem; font-weight: 600; overflow-wrap: anywhere; }
+
+/* ── Dashboard ────────────────────────────────────────────────────────────── */
+
+.set-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.set-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  background: #16213e; border: 1px solid #24304f; border-radius: 8px; padding: 0.9rem 1.1rem;
+}
+.set-main { min-width: 0; }
+.set-title { overflow-wrap: anywhere; }
+.set-meta { color: #8a8aa0; font-size: 0.85rem; overflow-wrap: anywhere; }
+.set-actions { display: flex; gap: 0.4rem; flex: none; }
+
+/* ── Spreadsheet offer, at the top of the set editor ──────────────────────── */
+
+.import-offer {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  margin-bottom: 1rem; padding: 0.85rem 1.1rem;
+  background: #16213e; border: 1px dashed #34456e; border-radius: 8px;
+}
+.import-offer-lead { font-weight: 600; margin-bottom: 0.15rem; }
+.import-offer .btn { flex: none; }
+
+/* ── Set editor ───────────────────────────────────────────────────────────── */
+
+.editor-head, .editor-row {
+  display: grid; grid-template-columns: 1fr 1.6fr 2rem 2rem; gap: 0.5rem; align-items: center;
+}
+.editor-head { margin-bottom: 0.35rem; }
+.col-head { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: #8a8aa0; }
+.editor-row { margin-bottom: 0.4rem; }
+.editor-input { font-size: 0.9rem; }
+
+/* ── Import preview ───────────────────────────────────────────────────────── */
+
+.table-scroll { overflow-x: auto; border: 1px solid #24304f; border-radius: 8px; }
+#import-preview { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+#import-preview th, #import-preview td {
+  padding: 0.45rem 0.6rem; text-align: left; border-bottom: 1px solid #22304f;
+  max-width: 22rem; overflow-wrap: anywhere; vertical-align: top;
+}
+#import-preview th { background: #131c30; color: #9a9ab0; font-size: 0.75rem;
+                     text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+.th-num { width: 2.5rem; color: #5c5c78 !important; text-align: right !important; }
+/* Highlight the two columns that are actually being imported. */
+.col-term { background: #1c2b46; color: #cfe0ff; }
+.col-def  { background: #1b3040; color: #cdeae0; }
+th.col-term, th.col-def { color: #fff !important; }
+.row-skipped { opacity: 0.4; text-decoration: line-through; }
+
+/* ── Direction sample ─────────────────────────────────────────────────────── */
+
+.sample {
+  display: flex; align-items: stretch; gap: 0.75rem; margin-top: 0.25rem;
+  padding: 0.8rem 0.9rem; background: #0f1729; border: 1px solid #24304f; border-radius: 7px;
+}
+.sample-side { flex: 1 1 0; min-width: 0; }
+.sample-label {
+  display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.12em;
+  color: #8a8aa0; margin-bottom: 0.3rem;
+}
+.sample-text { font-size: 0.9rem; overflow-wrap: anywhere; }
+.sample-side:first-child .sample-text { color: #cfe0ff; font-weight: 600; }
+.sample-side:last-child .sample-text  { color: #cdeae0; }
+.sample-arrow { flex: none; align-self: center; color: #e94560; font-size: 1.1rem; }
+
+/* ── Mode select ──────────────────────────────────────────────────────────── */
+
+.mode-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.7rem; }
+.mode-card {
+  text-align: left; font: inherit; cursor: pointer; padding: 1rem;
+  background: #16213e; border: 1px solid #24304f; border-radius: 8px; color: #e0e0e0;
+}
+.mode-card:hover:not(:disabled) { border-color: #e94560; background: #1c2745; }
+.mode-desc { color: #9a9ab0; font-size: 0.85rem; margin-top: 0.3rem; }
+.mode-note { color: #c99; font-size: 0.78rem; margin-top: 0.5rem; }
+.mode-card-disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ── Starring ─────────────────────────────────────────────────────────────── */
+
+/* Sits in the card's own top-right corner. The card is the positioning context. */
+.star-btn { position: absolute; top: 0.55rem; right: 0.55rem; z-index: 1; }
+
+.star-btn, .star-cell {
+  flex: none; display: grid; place-items: center; cursor: pointer;
+  width: 2.2rem; height: 2.2rem; padding: 0; line-height: 1;
+  font-family: inherit; font-size: 1.15rem;
+  color: #6f6f88; background: none; border: 1px solid #2c3a5c; border-radius: 5px;
+}
+.star-btn:hover, .star-cell:hover { color: #f0c040; border-color: #f0c040; }
+/* Starred is carried by colour and fill, and also announced via aria-pressed. */
+.star-on { color: #f0c040; border-color: #6b5a20; background: #2a2412; }
+.star-cell { width: 2rem; height: 2rem; font-size: 1rem; }
+
+/* ── Study ────────────────────────────────────────────────────────────────── */
+
+.progress { height: 4px; background: #22304f; border-radius: 2px; overflow: hidden; margin-bottom: 1.5rem; }
+#study-progress-bar { height: 100%; width: 0; background: #e94560; transition: width 0.2s ease-out; }
+
+.study-counter { text-align: center; color: #8a8aa0; font-size: 0.82rem; margin-bottom: 0.6rem; }
+
+.flashcard {
+  position: relative;   /* anchors the star button in the corner */
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 13rem; padding: 1.5rem; cursor: pointer; text-align: center;
+  background: #16213e; border: 1px solid #24304f; border-radius: 10px;
+}
+.flashcard:hover { border-color: #34456e; }
+.flashcard-prompt { cursor: default; }
+.flashcard-back { background: #17243f; border-color: #2a8c67; }
+.flashcard-label {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.14em;
+  color: #8a8aa0; margin-bottom: 0.9rem;
+}
+.flashcard-text { font-size: 1.25rem; overflow-wrap: anywhere; }
+
+.study-actions {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 0.6rem; margin-top: 1.25rem;
+}
+.study-actions .hint { flex-basis: 100%; text-align: center; }
+
+.type-form { margin-top: 1rem; }
+.type-input { font-size: 1.05rem !important; padding: 0.75rem !important; }
+
+.verdict { margin-top: 1rem; padding: 0.9rem 1.1rem; border-radius: 8px; text-align: center; }
+.verdict-right { background: #16302a; border: 1px solid #2a8c67; }
+.verdict-wrong { background: #301a22; border: 1px solid #8c2a3f; }
+.verdict-head { font-weight: 600; margin-bottom: 0.35rem; }
+.verdict-right .verdict-head { color: #6ee7b0; }
+.verdict-wrong .verdict-head { color: #ff9db0; }
+.verdict-expected { font-size: 1.05rem; overflow-wrap: anywhere; }
+
+.choice-list { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; }
+.choice {
+  text-align: left; font: inherit; cursor: pointer; padding: 0.8rem 1rem; color: #e0e0e0;
+  background: #16213e; border: 1px solid #24304f; border-radius: 7px; overflow-wrap: anywhere;
+}
+.choice:hover:not(:disabled) { border-color: #e94560; background: #1c2745; }
+.choice:disabled { cursor: default; }
+.choice-right { background: #16302a !important; border-color: #2a8c67 !important; color: #d6ffe9 !important; }
+.choice-wrong { background: #301a22 !important; border-color: #8c2a3f !important; color: #ffd6dd !important; }
+
+/* ── Results ──────────────────────────────────────────────────────────────── */
+
+.score { font-size: 1.6rem; font-weight: 600; color: #e94560; margin: 0.5rem 0; }
+.missed-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.missed-row { background: #16213e; border-left: 3px solid #e94560; border-radius: 6px; padding: 0.7rem 0.9rem; }
+.missed-term { font-weight: 600; overflow-wrap: anywhere; }
+.missed-def { color: #9a9ab0; font-size: 0.88rem; overflow-wrap: anywhere; }
+
+/* ── Toast ────────────────────────────────────────────────────────────────── */
+
+.toast {
+  position: fixed; left: 50%; bottom: 1.5rem; transform: translateX(-50%);
+  max-width: 90vw; padding: 0.7rem 1.2rem; border-radius: 6px; font-size: 0.9rem;
+  background: #22305a; border: 1px solid #2c3a5c; color: #e0e0e0; z-index: 10;
+}
+.toast-ok   { background: #16302a; border-color: #2a8c67; color: #d6ffe9; }
+.toast-warn { background: #3d1a2a; border-color: #e94560; color: #ffb3c0; }
+
+/* ── Narrow screens ───────────────────────────────────────────────────────── */
+
+@media (max-width: 560px) {
+  #app { padding: 1.25rem 0.9rem 3rem; }
+  h1 { font-size: 2rem; }
+  .topbar { flex-direction: column; gap: 0.5rem; }
+  #dashboard-screen .topbar { flex-direction: row; align-items: center; }
+  /* Stack the term and definition fields so each gets full width to type in. */
+  .editor-head { display: none; }
+  .editor-row {
+    grid-template-columns: 1fr 2rem 2rem;
+    grid-template-areas: "term star x" "def star x";
+  }
+  .editor-term { grid-area: term; }
+  .editor-def { grid-area: def; }
+  .star-cell { grid-area: star; align-self: center; }
+  .btn-icon { grid-area: x; align-self: center; }
+  .import-offer { flex-direction: column; align-items: stretch; }
+  .sample { flex-direction: column; gap: 0.5rem; }
+  .sample-arrow { align-self: flex-start; transform: rotate(90deg); }
+  .set-row { flex-direction: column; align-items: stretch; }
+  .set-actions { justify-content: flex-end; }
+  .flashcard-text { font-size: 1.1rem; }
+}

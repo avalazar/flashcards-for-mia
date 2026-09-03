@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flashcards</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- ── 1. Sign in / sign up ──────────────────────────────── -->
+    <div id="auth-screen" class="screen">
+      <h1>Flashcards</h1>
+      <p class="subtitle">Study sets for coursework</p>
+
+      <div class="tabs">
+        <button id="tab-login" class="tab tab-active" onclick="setAuthMode('login')">Sign in</button>
+        <button id="tab-signup" class="tab" onclick="setAuthMode('signup')">Create account</button>
+      </div>
+
+      <form id="auth-form" class="card" onsubmit="submitAuth(event)">
+        <label class="field">
+          <span>Username</span>
+          <input id="auth-username" type="text" autocomplete="username"
+                 maxlength="30" autocapitalize="none" spellcheck="false" required />
+          <small id="auth-username-hint" class="hint hidden">
+            3 to 30 characters: letters, numbers, dots, hyphens and underscores
+          </small>
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input id="auth-password" type="password" autocomplete="current-password" required />
+          <small id="auth-password-hint" class="hint hidden">At least 8 characters</small>
+        </label>
+        <p id="auth-error" class="error hidden"></p>
+        <button id="auth-submit" class="btn btn-wide" type="submit">Sign in</button>
+      </form>
+    </div>
+
+    <!-- ── 2. Dashboard ──────────────────────────────────────── -->
+    <div id="dashboard-screen" class="screen hidden">
+      <header class="topbar">
+        <h2>Your study sets</h2>
+        <button id="profile-btn" class="avatar" onclick="showSettings()"
+                aria-label="Your profile and settings"></button>
+      </header>
+
+      <div class="row-actions">
+        <button class="btn" onclick="newSet()">New set</button>
+      </div>
+
+      <p id="dash-empty" class="empty hidden">
+        No sets yet. Choose <strong>New set</strong> to type some cards in, or to fill a set
+        in automatically from a spreadsheet.
+      </p>
+      <div id="set-list" class="set-list"></div>
+    </div>
+
+    <!-- ── 2b. Settings ──────────────────────────────────────── -->
+    <div id="settings-screen" class="screen hidden">
+      <header class="topbar">
+        <h2>Settings</h2>
+        <button class="btn btn-quiet" onclick="showDashboard()">Done</button>
+      </header>
+
+      <div class="card profile-card">
+        <div id="settings-avatar" class="avatar avatar-large"></div>
+        <div>
+          <p class="profile-name" id="settings-username"></p>
+          <p class="hint">Your sets and settings are saved to this account.</p>
+        </div>
+      </div>
+
+      <h3 class="section-head">Studying</h3>
+      <div class="card">
+        <label class="check">
+          <input id="opt-auto-advance" type="checkbox"
+                 onchange="saveSetting('autoAdvance', this.checked)" />
+          <span>Move on automatically after a correct answer</span>
+        </label>
+        <p class="hint">
+          When this is on, a right answer pauses briefly and then goes to the next card by
+          itself. Turn it off to press Next each time instead. A wrong answer always waits.
+        </p>
+      </div>
+
+      <h3 class="section-head">Account</h3>
+      <div class="card">
+        <button class="btn btn-danger" onclick="signOut()">Sign out</button>
+      </div>
+    </div>
+
+    <!-- ── 3. Set editor ─────────────────────────────────────── -->
+    <div id="editor-screen" class="screen hidden">
+      <header class="topbar">
+        <h2 id="editor-heading">New set</h2>
+        <button class="btn btn-quiet" onclick="showDashboard()">Cancel</button>
+      </header>
+
+      <div class="import-offer">
+        <div>
+          <p class="import-offer-lead">Have the cards in a spreadsheet already?</p>
+          <p class="hint">Upload an .xlsx or .csv and pick the columns to use.</p>
+        </div>
+        <button class="btn btn-secondary" onclick="showImport(currentSetId)">
+          Upload a spreadsheet
+        </button>
+      </div>
+
+      <div class="card">
+        <label class="field">
+          <span>Title</span>
+          <input id="editor-title" type="text" maxlength="200" />
+        </label>
+        <label class="field">
+          <span>Description <em>(optional)</em></span>
+          <input id="editor-description" type="text" maxlength="2000" />
+        </label>
+      </div>
+
+      <div class="editor-head">
+        <span class="col-head">Term</span>
+        <span class="col-head">Definition</span>
+        <span></span>
+        <span></span>
+      </div>
+      <div id="editor-rows"></div>
+
+      <div class="row-actions">
+        <button class="btn btn-secondary" onclick="addEditorRow()">Add card</button>
+      </div>
+
+      <p id="editor-error" class="error hidden"></p>
+      <div class="row-actions row-actions-end">
+        <button id="editor-delete" class="btn btn-danger hidden" onclick="deleteSet()">Delete set</button>
+        <button class="btn btn-wide" onclick="saveSet()">Save</button>
+      </div>
+    </div>
+
+    <!-- ── 4. Spreadsheet import ─────────────────────────────── -->
+    <div id="import-screen" class="screen hidden">
+      <header class="topbar">
+        <h2>Upload a spreadsheet</h2>
+        <button class="btn btn-quiet" onclick="cancelImport()">Cancel</button>
+      </header>
+
+      <div id="import-step-file" class="card">
+        <p class="lead">Choose an <strong>.xlsx</strong> or <strong>.csv</strong> file. You will
+          pick which columns to use on the next step.</p>
+        <input id="import-file" type="file" accept=".xlsx,.xlsm,.csv,.txt" onchange="uploadFile()" />
+        <p class="hint">Older <code>.xls</code> files are not supported. Open one and re-save it
+          as <code>.xlsx</code>.</p>
+        <p id="import-error" class="error hidden"></p>
+        <p id="import-loading" class="hint hidden">Reading the file…</p>
+      </div>
+
+      <div id="import-step-map" class="hidden">
+        <div class="card">
+          <div id="import-sheet-wrap" class="field hidden">
+            <span>Sheet</span>
+            <select id="import-sheet" onchange="reparseSheet()"></select>
+          </div>
+          <p id="import-summary" class="lead"></p>
+          <label class="check">
+            <input id="import-header" type="checkbox" onchange="renderPreview()" />
+            <span>The first row is a header, not a card</span>
+          </label>
+          <div class="two-up">
+            <label class="field">
+              <span>Term column</span>
+              <select id="import-term-col" onchange="renderPreview()"></select>
+            </label>
+            <label class="field">
+              <span>Definition column</span>
+              <select id="import-def-col" onchange="renderPreview()"></select>
+            </label>
+          </div>
+        </div>
+
+        <h3 class="section-head">Preview</h3>
+        <div class="table-scroll"><table id="import-preview"></table></div>
+
+        <div class="card">
+          <label class="field">
+            <span>Import into</span>
+            <select id="import-target" onchange="renderTargetTitle()"></select>
+          </label>
+          <label class="field" id="import-title-wrap">
+            <span>New set title</span>
+            <input id="import-title" type="text" maxlength="200" />
+          </label>
+        </div>
+
+        <p id="import-map-error" class="error hidden"></p>
+        <div class="row-actions row-actions-end">
+          <button class="btn btn-secondary" onclick="backToFilePick()">Choose another file</button>
+          <button id="import-confirm" class="btn btn-wide" onclick="confirmImport()">Import cards</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 5. Mode select ────────────────────────────────────── -->
+    <div id="mode-screen" class="screen hidden">
+      <header class="topbar">
+        <div>
+          <h2 id="mode-set-title"></h2>
+          <p id="mode-set-meta" class="subtitle"></p>
+        </div>
+        <button class="btn btn-quiet" onclick="showDashboard()">Back</button>
+      </header>
+
+      <div class="card">
+        <label class="check">
+          <input id="opt-shuffle" type="checkbox" checked />
+          <span>Shuffle the cards</span>
+        </label>
+        <label class="check">
+          <input id="opt-missed" type="checkbox" onchange="renderModeList()" />
+          <span>Only cards I have missed before <em id="opt-missed-count"></em></span>
+        </label>
+        <label class="check">
+          <input id="opt-starred" type="checkbox" onchange="renderModeList()" />
+          <span>Only starred cards <em id="opt-starred-count"></em></span>
+        </label>
+        <label class="field">
+          <span>Which side is the question?</span>
+          <select id="opt-direction" onchange="renderDirectionSample()">
+            <option value="termFirst">Show the term, I answer with the definition</option>
+            <option value="definitionFirst">Show the definition, I answer with the term</option>
+          </select>
+        </label>
+
+        <!-- A real card from this set, so the choice above is concrete rather than
+             something to work out from the wording. -->
+        <div id="direction-sample" class="sample hidden">
+          <div class="sample-side">
+            <span class="sample-label">You will see</span>
+            <p id="sample-prompt" class="sample-text"></p>
+          </div>
+          <div class="sample-arrow" aria-hidden="true">&rarr;</div>
+          <div class="sample-side">
+            <span class="sample-label">You answer</span>
+            <p id="sample-answer" class="sample-text"></p>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="section-head">Pick a mode</h3>
+      <div id="mode-list" class="mode-list"></div>
+    </div>
+
+    <!-- ── 6. Study ──────────────────────────────────────────── -->
+    <div id="study-screen" class="screen hidden">
+      <header class="topbar">
+        <div>
+          <h2 id="study-title"></h2>
+          <p id="study-mode-label" class="subtitle"></p>
+        </div>
+        <button class="btn btn-quiet" onclick="quitStudy()">End session</button>
+      </header>
+      <div id="study-progress" class="progress"><div id="study-progress-bar"></div></div>
+      <!-- Lives here in the markup but is moved into the card's top-right corner as
+           each card renders, so it survives the mode clearing #study-root. -->
+      <button id="star-btn" class="star-btn hidden"></button>
+      <!-- The active mode renders itself into here. -->
+      <div id="study-root"></div>
+    </div>
+
+    <!-- ── 7. Results ────────────────────────────────────────── -->
+    <div id="results-screen" class="screen hidden">
+      <h2>Session complete</h2>
+      <p id="results-score" class="score"></p>
+      <p id="results-note" class="subtitle"></p>
+
+      <div id="results-missed-wrap" class="hidden">
+        <h3 class="section-head">Cards you missed</h3>
+        <div id="results-missed" class="missed-list"></div>
+      </div>
+
+      <div class="row-actions row-actions-end">
+        <button id="results-restudy" class="btn btn-secondary hidden" onclick="restudyMissed()">
+          Study the missed cards
+        </button>
+        <button class="btn btn-secondary" onclick="backToModes()">Study again</button>
+        <button class="btn" onclick="showDashboard()">Back to sets</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="grade.js"></script>
+  <!-- Study modes self-register into STUDY_MODES. Adding a mode or a study game is a
+       new file here plus one script tag; no other file needs to change. -->
+  <script>const STUDY_MODES = [];</script>
+  <script src="modes/flip.js"></script>
+  <script src="modes/type.js"></script>
+  <script src="modes/choice.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>

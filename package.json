@@ -1,0 +1,30 @@
+{
+  "name": "flashcards-for-mia",
+  "version": "1.0.0",
+  "description": "Flashcard study site with accounts, saved study sets, and spreadsheet import",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js",
+    "migrate": "node scripts/migrate.js",
+    "test": "node --test \"test/*.test.js\"",
+    "reset-password": "node scripts/reset-password.js",
+    "make-fixture": "node scripts/make-fixture.js",
+    "db:up": "docker run -d --name mia-flashcards-pg -e POSTGRES_PASSWORD=devpass -e POSTGRES_DB=flashcards -p 55432:5432 postgres:16-alpine",
+    "db:down": "docker rm -f mia-flashcards-pg"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
+    "multer": "^1.4.5-lts.1",
+    "papaparse": "^5.4.1",
+    "pg": "^8.12.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
