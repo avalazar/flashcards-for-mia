@@ -34,6 +34,9 @@ The remembered theme is applied by an inline script in `<head>` before the first
 pages does not flash the default; the account setting is authoritative once loaded.
 
 ## 4. Accounts
+The welcome screen shows only the sign-in form. Creating an account is a link beneath it that swaps
+the same form in place; it is a button styled as a link rather than an anchor, so it puts no
+fragment in the URL and offers no "copy link" that leads nowhere.
 * Open signup with a **username and password**. No email address is collected, so there is nothing
   to verify and no address to look after.
 * Usernames are 3 to 30 characters of letters, numbers, dots, hyphens and underscores. They are
@@ -91,10 +94,14 @@ Shipped modes:
   again, then left marks it missed and right marks it known. Clicking the card and pressing space
   also flip, but nothing outside the arrow keys is required. Left and right do nothing until the
   answer has been shown, so a stray press cannot score a card that was never read.
-* **Type the answer** - the user types the answer; graded with forgiving matching. The verdict is
-  shown on the card itself rather than in a block below it, and both states render the same three
-  pieces (card, input, action row), so the button being aimed at never moves when an answer is
-  checked.
+* **Write** - the answer is typed out and graded with forgiving matching. A wrong answer does not
+  simply move on: the correct answer is shown and has to be **written out** before the card is
+  released, because writing it is what makes it stick. The retype does not change the score, since
+  the miss was already recorded and copying it out is practice rather than a second attempt.
+  "I was right" overrules the grader and releases the card without a retype, so a correct answer
+  phrased differently cannot force busywork. The verdict is shown on the card itself rather than in
+  a block below it, and all three states render the same three pieces (card, input, action row), so
+  the button being aimed at never moves.
 * **Multiple choice** - four options, distractors sampled from other cards in the same set.
 
 Modes are labelled with one word each -- Flashcards, Write, Quiz -- and an icon.

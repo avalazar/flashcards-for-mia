@@ -24,11 +24,6 @@
       <h1>Flashcards</h1>
       <p class="subtitle">Study sets for coursework</p>
 
-      <div class="tabs">
-        <button id="tab-login" class="tab tab-active" onclick="setAuthMode('login')">Sign in</button>
-        <button id="tab-signup" class="tab" onclick="setAuthMode('signup')">Create account</button>
-      </div>
-
       <form id="auth-form" class="card" onsubmit="submitAuth(event)">
         <label class="field">
           <span>Username</span>
@@ -45,6 +40,15 @@
         </label>
         <p id="auth-error" class="error hidden"></p>
         <button id="auth-submit" class="btn btn-wide" type="submit">Sign in</button>
+
+        <!-- A button rather than an anchor: it switches the form in place rather than
+             navigating anywhere, so it should not put a fragment in the URL or offer a
+             "copy link" that goes nowhere. Styled to read as a link. -->
+        <p class="auth-switch">
+          <span id="auth-switch-text"></span>
+          <button id="auth-switch-link" type="button" class="link-btn"
+                  onclick="setAuthMode(authMode === 'login' ? 'signup' : 'login')"></button>
+        </p>
       </form>
     </div>
 

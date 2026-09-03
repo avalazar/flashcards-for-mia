@@ -109,13 +109,15 @@ function handleApiError(err, errorEl) {
 function setAuthMode(mode) {
   authMode = mode;
   const isSignup = mode === 'signup';
-  document.getElementById('tab-login').classList.toggle('tab-active', !isSignup);
-  document.getElementById('tab-signup').classList.toggle('tab-active', isSignup);
   // The format hints only help while choosing a name; on sign-in they are just noise.
   document.getElementById('auth-username-hint').classList.toggle('hidden', !isSignup);
   document.getElementById('auth-password-hint').classList.toggle('hidden', !isSignup);
   document.getElementById('auth-password').autocomplete = isSignup ? 'new-password' : 'current-password';
   document.getElementById('auth-submit').textContent = isSignup ? 'Create account' : 'Sign in';
+  document.getElementById('auth-switch-text').textContent =
+    isSignup ? 'Already have an account?' : 'New here?';
+  document.getElementById('auth-switch-link').textContent =
+    isSignup ? 'Sign in' : 'Create an account';
   clearError(document.getElementById('auth-error'));
 }
 

@@ -1,4 +1,10 @@
-// Type the answer: graded with the forgiving matching in grade.js.
+// Write: the answer is typed out and graded with the forgiving matching in grade.js.
+//
+// Getting one wrong does not just move on. The correct answer is shown and has to be
+// typed out before the card is released, because writing it is what makes it stick;
+// reading a correction and pressing Next does much less. The score is unaffected by
+// the retype: the miss was already recorded, and copying it out is practice, not a
+// second attempt.
 STUDY_MODES.push({
   id: 'type',
   label: 'Write',
@@ -19,12 +25,11 @@ STUDY_MODES.push({
   start(ctx) {
     this.ctx = ctx;
     this.index = 0;
-    this.state = 'asking';   // 'asking' or 'checked'
-    this.result = null;
+    this.resetCard();
     this.advanceTimer = null;
     this.render();
 
-    // Enter moves on once an answer has been checked. While still answering, the form
+    // Enter moves on once a card is finished. While answering or correcting, the form
     // owns Enter and submits instead, and a focused button is left to its own action so
     // one press cannot both click it and advance.
     this.onKey = e => {
@@ -44,13 +49,24 @@ STUDY_MODES.push({
     this.onKey = null;
   },
 
+  // 'asking'     - waiting for a first attempt
+  // 'correcting' - got it wrong; the answer is shown and must be typed out
+  // 'checked'    - finished with this card
+  resetCard() {
+    this.state = 'asking';
+    this.result = null;       // the graded first attempt, which is what was recorded
+    this.answerGiven = '';    // what was typed first
+    this.retyped = '';        // what is being typed during the correction
+    this.nudge = null;        // shown when a correction does not match yet
+    this.corrected = false;   // the answer was successfully typed out
+  },
+
   clearAdvance() {
     if (this.advanceTimer) clearTimeout(this.advanceTimer);
     this.advanceTimer = null;
   },
 
-  // A right answer moves on by itself. Long enough to register the tick, short enough
-  // that it does not feel like waiting.
+  // A finished card moves on by itself, if the user has that setting on.
   scheduleAdvance(ms) {
     this.clearAdvance();
     this.advanceTimer = setTimeout(() => {
@@ -59,52 +75,91 @@ STUDY_MODES.push({
     }, ms);
   },
 
-  check() {
+  expected() {
+    const card = this.ctx.cards[this.index];
+    return this.ctx.direction === 'definitionFirst' ? card.term : card.definition;
+  },
+
+  finish(delay) {
+    this.state = 'checked';
+    this.render();
+    if (this.ctx.autoAdvance) this.scheduleAdvance(delay);
+  },
+
+  submit(typed) {
     if (this.state === 'checked') return this.next();
-    const input = this.ctx.root.querySelector('#type-input');
-    const typed = input ? input.value : '';
-    if (!typed.trim()) return;   // ignore an empty submit rather than scoring it wrong
+    if (!typed.trim()) return;                 // ignore an empty submit rather than scoring it
 
     const card = this.ctx.cards[this.index];
-    const expected = this.ctx.direction === 'definitionFirst' ? card.term : card.definition;
-    this.result = gradeAnswer(typed, expected);
-    this.state = 'checked';
-    this.ctx.onResult(card.id, this.result.correct);
-    this.render();
+    const expected = this.expected();
 
-    // Honour the user's preference: with auto-advance off, a correct answer waits for
-    // a press just as a wrong one does.
-    if (this.result.correct && this.ctx.autoAdvance) {
-      // A forgiven typo shows the real spelling, which is worth a beat longer to read.
-      this.scheduleAdvance(this.result.close ? this.advanceDelayClose : this.advanceDelay);
+    if (this.state === 'asking') {
+      this.answerGiven = typed;
+      this.result = gradeAnswer(typed, expected);
+      this.ctx.onResult(card.id, this.result.correct);
+
+      if (this.result.correct) {
+        this.finish(this.result.close ? this.advanceDelayClose : this.advanceDelay);
+      } else {
+        // Wrong: hold the card and ask for the answer to be written out.
+        this.state = 'correcting';
+        this.retyped = '';
+        this.nudge = null;
+        this.render();
+      }
+      return;
+    }
+
+    // state === 'correcting'
+    this.retyped = typed;
+    if (gradeAnswer(typed, expected).correct) {
+      this.corrected = true;
+      this.nudge = null;
+      this.finish(this.advanceDelay);
+    } else {
+      // Keep what they typed so a near miss can be fixed rather than retyped whole.
+      this.nudge = 'Not quite the same yet — copy the answer above.';
+      this.render();
     }
   },
 
-  // Let the user overrule the grader. Definitions are wordy and a correct answer
-  // phrased differently will not match, so the score should not be the last word.
+  // Lets the user overrule the grader, which also releases them from the retype.
+  // Definitions are wordy and a correct answer phrased differently will not match, so
+  // the grader should not be able to force busywork.
   override() {
-    if (this.state !== 'checked' || this.result.correct) return;
+    if (this.state !== 'correcting') return;
     this.ctx.onResult(this.ctx.cards[this.index].id, true, { override: true });
     this.result.correct = true;
     this.result.overridden = true;
-    this.render();
-    if (this.ctx.autoAdvance) this.scheduleAdvance(this.advanceDelay);
+    this.finish(this.advanceDelay);
   },
 
   next() {
     this.clearAdvance();
     this.index++;
-    this.state = 'asking';
-    this.result = null;
+    this.resetCard();
     if (this.index >= this.ctx.cards.length) return this.ctx.onFinish();
     this.render();
+  },
+
+  // The headline shown on the card, which doubles as the instruction while correcting.
+  cardLabel() {
+    const ctx = this.ctx;
+    if (this.state === 'asking') {
+      return ctx.direction === 'definitionFirst' ? 'Which term is this?' : 'Define this term';
+    }
+    if (this.state === 'correcting') return 'Not quite — write it out to continue';
+    if (this.result.overridden) return 'Counted as correct';
+    if (this.corrected) return 'Written out correctly';
+    // Covers a typo and a plural alike, so the wording stays true to both.
+    if (this.result.close) return 'Correct — the exact wording is';
+    return 'Correct';
   },
 
   render() {
     const ctx = this.ctx;
     const card = ctx.cards[this.index];
-    const prompt = ctx.direction === 'definitionFirst' ? card.definition : card.term;
-    const checked = this.state === 'checked';
+    const answering = this.state === 'asking';
 
     ctx.root.innerHTML = '';
     ctx.root.appendChild(el('p', 'study-counter', `Card ${this.index + 1} of ${ctx.cards.length}`));
@@ -112,13 +167,18 @@ STUDY_MODES.push({
     // The result is shown on the card itself rather than in a block underneath. A block
     // appearing below would push the button row down the moment an answer is checked,
     // which is distracting when the next thing you want to press has just moved.
-    // Both states render the same three pieces -- card, input, action row -- so nothing
-    // shifts position between answering and being marked.
-    const box = el('div', 'flashcard flashcard-prompt'
-      + (checked ? (this.result.correct ? ' flashcard-right' : ' flashcard-wrong') : ''));
-    box.appendChild(el('span', 'flashcard-label', checked ? this.verdictLabel() :
-      (ctx.direction === 'definitionFirst' ? 'Which term is this?' : 'Define this term')));
-    box.appendChild(el('p', 'flashcard-text', checked ? this.result.expected : prompt));
+    // Every state renders the same three pieces -- card, input, action row -- so
+    // nothing shifts position between answering, correcting and being marked.
+    let tint = '';
+    if (this.state === 'correcting') tint = ' flashcard-wrong';
+    else if (this.state === 'checked') tint = this.result.correct || this.corrected
+      ? ' flashcard-right' : ' flashcard-wrong';
+
+    const box = el('div', 'flashcard flashcard-prompt' + tint);
+    box.appendChild(el('span', 'flashcard-label', this.cardLabel()));
+    box.appendChild(el('p', 'flashcard-text', answering
+      ? (ctx.direction === 'definitionFirst' ? card.definition : card.term)
+      : this.expected()));
     ctx.root.appendChild(box);
     // Reported after the card is in the DOM, so the star button can be mounted inside it.
     ctx.onCardShown?.(card);
@@ -128,28 +188,25 @@ STUDY_MODES.push({
     input.id = 'type-input';
     input.type = 'text';
     input.autocomplete = 'off';
-    input.placeholder = 'Your answer';
-    if (checked) {
-      input.value = this.answerGiven || '';
+    input.autocapitalize = 'none';
+    if (this.state === 'asking') {
+      input.placeholder = 'Your answer';
+    } else if (this.state === 'correcting') {
+      input.placeholder = 'Write the answer shown above';
+      input.value = this.retyped;
+    } else {
+      input.value = this.corrected ? this.expected() : this.answerGiven;
       input.disabled = true;
     }
     form.appendChild(input);
     form.onsubmit = e => {
       e.preventDefault();
-      this.answerGiven = input.value;
-      this.check();
+      this.submit(input.value);
     };
     ctx.root.appendChild(form);
 
     const actions = el('div', 'study-actions');
-    if (checked) {
-      // Let the user overrule the grader. Definitions are wordy and a correct answer
-      // phrased differently will not match, so the score is not the last word.
-      if (!this.result.correct) {
-        const iWasRight = el('button', 'btn btn-secondary', 'I was right');
-        iWasRight.onclick = () => this.override();
-        actions.appendChild(iWasRight);
-      }
+    if (this.state === 'checked') {
       const nextBtn = el('button', 'btn btn-knew',
         this.index + 1 >= ctx.cards.length ? 'See results' : 'Next card');
       nextBtn.onclick = () => this.next();
@@ -157,24 +214,32 @@ STUDY_MODES.push({
       actions.appendChild(el('p', 'hint',
         this.index + 1 >= ctx.cards.length ? 'Enter for the results' : 'Enter for the next card'));
       ctx.root.appendChild(actions);
-      // Only take focus when a press is actually needed. A correct answer that will
-      // advance on its own should not steal focus.
-      if (!this.result.correct || !this.ctx.autoAdvance) nextBtn.focus();
+      // Only take focus when a press is actually needed. A card that will advance on
+      // its own should not steal focus.
+      if (!ctx.autoAdvance) nextBtn.focus();
+    } else if (this.state === 'correcting') {
+      const iWasRight = el('button', 'btn btn-secondary', 'I was right');
+      iWasRight.type = 'button';
+      iWasRight.onclick = () => this.override();
+      actions.appendChild(iWasRight);
+
+      const check = el('button', 'btn', 'Continue');
+      check.type = 'button';
+      check.onclick = () => this.submit(input.value);
+      actions.appendChild(check);
+
+      actions.appendChild(el('p', 'hint',
+        this.nudge || `You wrote "${this.answerGiven.trim()}"`));
+      ctx.root.appendChild(actions);
+      input.focus();
     } else {
       const submit = el('button', 'btn', 'Check');
-      submit.onclick = () => { this.answerGiven = input.value; this.check(); };
+      submit.type = 'button';
+      submit.onclick = () => this.submit(input.value);
       actions.appendChild(submit);
       actions.appendChild(el('p', 'hint', 'Enter to check'));
       ctx.root.appendChild(actions);
       input.focus();
     }
-  },
-
-  // The headline shown on the card once an answer has been marked.
-  verdictLabel() {
-    if (this.result.overridden) return 'Counted as correct';
-    // Covers a typo and a plural alike, so the wording stays true to both.
-    if (this.result.correct && this.result.close) return 'Correct \u2014 the exact wording is';
-    return this.result.correct ? 'Correct' : 'Not quite';
   },
 });
