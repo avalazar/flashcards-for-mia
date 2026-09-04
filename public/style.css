@@ -52,9 +52,6 @@ html { scrollbar-gutter: stable; }
   --col-def-bg: #e9f3e3;
   --col-def-text: #245c2a;
 
-  --hill-far: #b6dd8a;
-  --hill-back: #7dbd4c;
-  --hill-front: #9ad555;
   --blade-a: #3d8f3a;
   --blade-b: #55a84c;
   --stem: #45933f;
@@ -99,9 +96,6 @@ html { scrollbar-gutter: stable; }
   --col-def-bg: #1b3040;
   --col-def-text: #cdeae0;
 
-  --hill-far: #16302a;
-  --hill-back: #1d4030;
-  --hill-front: #26523c;
   --blade-a: #2f6344;
   --blade-b: #3d7d55;
   --stem: #2f6344;
@@ -125,7 +119,7 @@ body {
 #app {
   width: 100%;
   max-width: 760px;
-  padding: 2rem 1.25rem 12.5rem;
+  padding: 2rem 1.25rem 9.5rem;
 }
 
 .screen { animation: fade 0.15s ease-out; }
@@ -484,7 +478,7 @@ th.col-def { color: var(--col-def-text) !important; }
 
 /* Sits above the grass strip rather than behind it. */
 .toast {
-  position: fixed; left: 50%; bottom: 11.5rem; transform: translateX(-50%);
+  position: fixed; left: 50%; bottom: 8.5rem; transform: translateX(-50%);
   max-width: 90vw; padding: 0.7rem 1.2rem; border-radius: 6px; font-size: 0.9rem;
   background: var(--surface); border: 1px solid var(--border-strong); color: var(--text);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12); z-index: 20;
@@ -502,16 +496,11 @@ th.col-def { color: var(--col-def-text) !important; }
    put while a long set scrolls, and pointer-events:none so it can never swallow a
    click meant for a control near the bottom of the page. */
 .garden {
-  position: fixed; left: 0; right: 0; bottom: 0; height: 165px;
+  position: fixed; left: 0; right: 0; bottom: 0; height: 112px;
   pointer-events: none; z-index: 10;
 }
-/* The two layers occupy the same box: hills stretched behind, plants tiled in front. */
-.garden svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
-.garden-plants { z-index: 1; }
+.garden svg { display: block; width: 100%; height: 100%; }
 
-.g-hill-far   { fill: var(--hill-far); }
-.g-hill-back  { fill: var(--hill-back); }
-.g-hill-front { fill: var(--hill-front); }
 .g-blade-a    { fill: var(--blade-a); }
 .g-blade-b    { fill: var(--blade-b); }
 .g-petal      { fill: var(--petal); }
@@ -521,7 +510,7 @@ th.col-def { color: var(--col-def-text) !important; }
 /* ── Narrow screens ───────────────────────────────────────────────────────── */
 
 @media (max-width: 560px) {
-  #app { padding: 1.25rem 0.9rem 9rem; }
+  #app { padding: 1.25rem 0.9rem 7rem; }
   h1 { font-size: 2rem; }
   .topbar { flex-direction: column; gap: 0.5rem; }
   #dashboard-screen .topbar { flex-direction: row; align-items: center; }
@@ -551,6 +540,6 @@ th.col-def { color: var(--col-def-text) !important; }
   .editor-def { grid-area: def; }
   .star-cell { grid-area: star; align-self: center; }
   .btn-icon { grid-area: x; align-self: center; }
-  .garden { height: 118px; }
-  .toast { bottom: 8rem; }
+  .garden { height: 84px; }
+  .toast { bottom: 6rem; }
 }

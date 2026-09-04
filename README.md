@@ -26,8 +26,8 @@ auto-populated from a spreadsheet upload.
 * **Per-user settings** — reached from the profile button at the top right: theme, whether a
   correct answer moves on by itself, and sign out. Settings are stored on the account, so they
   follow the user between devices rather than living in one browser.
-* **Two themes** — *Garden* (cream and leaf green, with a grass strip along the bottom) is the
-  default; *Night* keeps the original dark scheme.
+* **Two themes** — *Garden* (cream and leaf green, with grass and daisies along the bottom) is
+  the default; *Night* keeps the original dark scheme.
 
 ## Tech Stack
 
@@ -156,9 +156,16 @@ The theme is applied twice on purpose. A small inline script in `<head>` reads a
 `localStorage` before the first paint, so a Night user never sees a flash of cream; the account
 setting is then applied once it arrives and is the source of truth.
 
-The grass strip is inline SVG with a `<pattern>` rather than an encoded data URI, so the blades stay
-editable and CSS can recolour them per theme. The `<svg>` has no `viewBox`, which means one user
-unit is one pixel and the tile repeats at its natural size instead of stretching on wide screens.
+The garden along the bottom is inline SVG with a `<pattern>` rather than an encoded data URI, so
+the blades and flowers stay editable and CSS can recolour them per theme. The `<svg>` has no
+`viewBox`, which means one user unit is one pixel and the tile repeats at its natural size instead
+of stretching on wide screens. The tile is wide (720px) and holds a composed scene — tufts at the
+sides, a sparse middle, varied heights and lean — so at a typical window it is two or three repeats
+rather than a dozen. No element crosses the tile edges, so the seam is invisible.
+
+The blade and flower coordinates are generated geometry rather than hand-written path data. To
+change the density or distribution, regenerate them; to change the colours, edit `--blade-a`,
+`--blade-b`, `--stem`, `--petal` and `--petal-centre` per theme.
 
 ## Adding a user setting
 
