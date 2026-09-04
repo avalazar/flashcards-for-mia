@@ -52,6 +52,7 @@ html { scrollbar-gutter: stable; }
   --col-def-bg: #e9f3e3;
   --col-def-text: #245c2a;
 
+  --ground: #4a9a44;
   --blade-a: #3d8f3a;
   --blade-b: #55a84c;
   --stem: #45933f;
@@ -96,6 +97,7 @@ html { scrollbar-gutter: stable; }
   --col-def-bg: #1b3040;
   --col-def-text: #cdeae0;
 
+  --ground: #2a5940;
   --blade-a: #2f6344;
   --blade-b: #3d7d55;
   --stem: #2f6344;
@@ -501,6 +503,7 @@ th.col-def { color: var(--col-def-text) !important; }
 }
 .garden svg { display: block; width: 100%; height: 100%; }
 
+.g-ground     { fill: var(--ground); }
 .g-blade-a    { fill: var(--blade-a); }
 .g-blade-b    { fill: var(--blade-b); }
 .g-petal      { fill: var(--petal); }
