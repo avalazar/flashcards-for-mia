@@ -26,8 +26,8 @@ Two free-tier limits shape the design:
 
 ## 3b. Appearance
 Two themes, chosen per user and stored on the account: **Garden** (cream and leaf green, the
-default, with grass and daisies fixed along the bottom of the viewport) and **Night** (the original
-dark scheme, which gets a dusk version of the same garden rather than its own artwork). Every colour in the stylesheet resolves through a custom property, and a theme is one block
+default, with a hand-drawn flower border fixed along the bottom of the viewport) and **Night** (the
+original dark scheme, which dims the same border rather than needing its own artwork). Every colour in the stylesheet resolves through a custom property, and a theme is one block
 of those properties keyed on `[data-theme]`, so no rule is written twice.
 
 The remembered theme is applied by an inline script in `<head>` before the first paint, so switching

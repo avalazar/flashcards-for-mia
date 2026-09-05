@@ -52,16 +52,11 @@ html { scrollbar-gutter: stable; }
   --col-def-bg: #e9f3e3;
   --col-def-text: #245c2a;
 
-  --ground: #4a9a44;
-  --blade-a: #3d8f3a;
-  --blade-b: #55a84c;
-  --stem: #45933f;
-  --petal: #ffffff;
-  --petal-centre: #f5c93b;
 }
 
 /* Night: the original dark scheme, kept as an option. */
 [data-theme='night'] {
+  --garden-filter: brightness(0.66) saturate(0.85);
   --bg: #1a1a2e;
   --surface: #16213e;
   --surface-2: #22305a;
@@ -97,12 +92,6 @@ html { scrollbar-gutter: stable; }
   --col-def-bg: #1b3040;
   --col-def-text: #cdeae0;
 
-  --ground: #2a5940;
-  --blade-a: #2f6344;
-  --blade-b: #3d7d55;
-  --stem: #2f6344;
-  --petal: #cfd4e0;
-  --petal-centre: #c0a03a;
 }
 
 body {
@@ -492,23 +481,20 @@ th.col-def { color: var(--col-def-text) !important; }
   background: var(--negative-soft); border-color: var(--negative-line); color: var(--negative-text);
 }
 
-/* ── Garden ───────────────────────────────────────────────────────────────── */
+/* ── Flower border ────────────────────────────────────────────────────────── */
 
-/* A garden along the bottom of the viewport. Fixed rather than in the flow so it stays
-   put while a long set scrolls, and pointer-events:none so it can never swallow a
-   click meant for a control near the bottom of the page. */
+/* A hand-drawn PNG, tiled horizontally. background-size: auto 100% scales it to the
+   strip's height and keeps its aspect, so at 140px tall it is about 1220px wide and
+   repeats only once or twice on a typical window rather than reading as a pattern.
+   The artwork has transparent margins at its left and right edges, which is what
+   keeps one tuft from butting straight against the next at the seam. */
 .garden {
-  position: fixed; left: 0; right: 0; bottom: 0; height: 112px;
+  position: fixed; left: 0; right: 0; bottom: 0; height: 140px;
   pointer-events: none; z-index: 10;
+  background: url('flower-border.png') repeat-x bottom center / auto 100%;
+  /* A single fixed image cannot be recoloured per theme, so Night dims it instead. */
+  filter: var(--garden-filter, none);
 }
-.garden svg { display: block; width: 100%; height: 100%; }
-
-.g-ground     { fill: var(--ground); }
-.g-blade-a    { fill: var(--blade-a); }
-.g-blade-b    { fill: var(--blade-b); }
-.g-petal      { fill: var(--petal); }
-.g-centre     { fill: var(--petal-centre); }
-.g-stem       { fill: none; stroke: var(--stem); stroke-width: 1.6; stroke-linecap: round; }
 
 /* ── Narrow screens ───────────────────────────────────────────────────────── */
 

@@ -156,16 +156,15 @@ The theme is applied twice on purpose. A small inline script in `<head>` reads a
 `localStorage` before the first paint, so a Night user never sees a flash of cream; the account
 setting is then applied once it arrives and is the source of truth.
 
-The garden along the bottom is inline SVG with a `<pattern>` rather than an encoded data URI, so
-the blades and flowers stay editable and CSS can recolour them per theme. The `<svg>` has no
-`viewBox`, which means one user unit is one pixel and the tile repeats at its natural size instead
-of stretching on wide screens. The tile is wide (720px) and holds a composed scene — tufts at the
-sides, a sparse middle, varied heights and lean — so at a typical window it is two or three repeats
-rather than a dozen. No element crosses the tile edges, so the seam is invisible.
+The flower border along the bottom is `public/flower-border.png`, hand-drawn artwork with a
+transparent background, tiled horizontally by CSS. `background-size: auto 100%` scales it to the
+strip's height and keeps its aspect, so at 140px tall it is about 1220px wide and repeats only once
+or twice on a typical window rather than reading as a pattern. The artwork has transparent margins
+at its left and right edges, which is what keeps one tuft from butting against the next at the seam.
 
-The blade and flower coordinates are generated geometry rather than hand-written path data. To
-change the density or distribution, regenerate them; to change the colours, edit `--blade-a`,
-`--blade-b`, `--stem`, `--petal` and `--petal-centre` per theme.
+To swap the artwork, replace that file and crop it so the drawing sits flush with the bottom edge
+with only a little headroom above the tallest stem; the strip's height is set on `.garden`. A single
+image cannot be recoloured per theme, so Night dims it with `--garden-filter` instead.
 
 ## Adding a user setting
 
