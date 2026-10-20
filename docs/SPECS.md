@@ -164,6 +164,13 @@ Sign out lives on this screen too, rather than on the dashboard.
 Per-card results are recorded so "study missed cards" and future study games work without a schema
 change. A `box` column is reserved for Leitner-style spaced repetition, which is not implemented.
 
+Each card on the results screen's missed list has an **I got this right** button, for a card that
+was marked wrong but was really known (a slip of the arrow key, or a Write answer phrased
+differently). The session has already been posted by then, so `POST /api/progress/revise` moves one
+recorded answer from incorrect to correct rather than adding one; the same button then reads
+**Undo** and moves it back. The row stays in the list, tinted green, so the undo is where the click
+was. The score and "Study the missed cards" update to match.
+
 ## 11. Screens
 `auth` -> `dashboard` -> `settings` / `editor` / `import` / `mode-select` -> `study` -> `results`.
 

@@ -58,4 +58,42 @@ router.post('/', async (req, res, next) => {
   }
 });
 
+// "I got this right" on the results screen. The session has already been posted by
+// then, so this moves one recorded answer from missed to correct (or back again, for
+// undo) rather than adding a new one. The counter being moved from must be above zero,
+// so repeated clicks cannot push the counts past what was actually answered.
+// The miss dropped `box` to 1 and the box it came from is not stored, so a revised
+// card goes to 2, where a correct answer from 1 would have put it.
+router.post('/revise', async (req, res, next) => {
+  try {
+    const { cardId, correct } = req.body;
+    if (!isUuid(cardId)) throw bad('A valid card id is required.');
+    if (typeof correct !== 'boolean') throw bad('A correct flag is required.');
+
+    const { rowCount } = await query(
+      correct
+        ? `update card_progress p
+              set incorrect_count = p.incorrect_count - 1,
+                  correct_count   = p.correct_count + 1,
+                  box = 2
+             from cards c join study_sets s on s.id = c.set_id
+            where p.card_id = $2 and p.user_id = $1 and c.id = p.card_id
+              and s.user_id = $1 and p.incorrect_count > 0`
+        : `update card_progress p
+              set correct_count   = p.correct_count - 1,
+                  incorrect_count = p.incorrect_count + 1,
+                  box = 1
+             from cards c join study_sets s on s.id = c.set_id
+            where p.card_id = $2 and p.user_id = $1 and c.id = p.card_id
+              and s.user_id = $1 and p.correct_count > 0`,
+      [req.user.id, cardId]
+    );
+
+    if (rowCount === 0) throw bad('There is no answer on that card to change.');
+    res.json({ revised: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = { router };

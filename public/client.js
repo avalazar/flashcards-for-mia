@@ -1325,30 +1325,24 @@ async function quitStudy() {
 // ── Results ───────────────────────────────────────────────────────────────────
 
 let lastMissedIds = [];
+// The final answer per card for the session on the results screen, kept so the score
+// can be redrawn when a miss is changed to "I got this right".
+let resultsAnswers = new Map();
+let resultsCardCount = 0;
 
 function renderResults(finished) {
   // A card can be answered more than once in a session; the final answer is the one
   // that counts for the summary.
   const finalAnswer = new Map();
   for (const r of finished.results) finalAnswer.set(r.cardId, r.correct);
+  resultsAnswers = finalAnswer;
+  resultsCardCount = finished.cards.length;
+  renderResultsScore();
 
-  const total = finalAnswer.size;
-  const right = [...finalAnswer.values()].filter(Boolean).length;
-  const pct = total === 0 ? 0 : Math.round((right / total) * 100);
-
-  document.getElementById('results-score').textContent = `${right} of ${total} correct · ${pct}%`;
-
-  const note = document.getElementById('results-note');
-  if (total < finished.cards.length) {
-    note.textContent = `You answered ${total} of the ${finished.cards.length} cards in this session.`;
-  } else if (pct === 100) {
-    note.textContent = 'Every card correct.';
-  } else {
-    note.textContent = '';
-  }
-
+  // Built from the misses as they stood at the end of the session, so a card changed
+  // to correct stays in the list, with an undo, rather than vanishing from under the
+  // pointer.
   const missedIds = [...finalAnswer.entries()].filter(([, ok]) => !ok).map(([id]) => id);
-  lastMissedIds = missedIds;
 
   const byId = new Map(finished.cards.map(c => [c.id, c]));
   const wrap = document.getElementById('results-missed-wrap');
@@ -1357,7 +1351,6 @@ function renderResults(finished) {
 
   if (missedIds.length === 0) {
     wrap.classList.add('hidden');
-    document.getElementById('results-restudy').classList.add('hidden');
     return;
   }
 
@@ -1365,12 +1358,58 @@ function renderResults(finished) {
     const card = byId.get(id);
     if (!card) continue;
     const row = el('div', 'missed-row');
-    row.appendChild(el('p', 'missed-term', card.term));
-    row.appendChild(el('p', 'missed-def', card.definition));
+    const text = el('div', 'missed-text');
+    text.appendChild(el('p', 'missed-term', card.term));
+    text.appendChild(el('p', 'missed-def', card.definition));
+    row.appendChild(text);
+    const toggle = el('button', 'btn btn-small btn-secondary missed-toggle', 'I got this right');
+    toggle.onclick = () => reviseResult(id, row, toggle);
+    row.appendChild(toggle);
     list.appendChild(row);
   }
   wrap.classList.remove('hidden');
-  document.getElementById('results-restudy').classList.remove('hidden');
+}
+
+function renderResultsScore() {
+  const total = resultsAnswers.size;
+  const right = [...resultsAnswers.values()].filter(Boolean).length;
+  const pct = total === 0 ? 0 : Math.round((right / total) * 100);
+
+  document.getElementById('results-score').textContent = `${right} of ${total} correct · ${pct}%`;
+
+  const note = document.getElementById('results-note');
+  if (total < resultsCardCount) {
+    note.textContent = `You answered ${total} of the ${resultsCardCount} cards in this session.`;
+  } else if (pct === 100) {
+    note.textContent = 'Every card correct.';
+  } else {
+    note.textContent = '';
+  }
+
+  lastMissedIds = [...resultsAnswers.entries()].filter(([, ok]) => !ok).map(([id]) => id);
+  document.getElementById('results-restudy').classList.toggle('hidden', lastMissedIds.length === 0);
+}
+
+// Overrules a miss after the session, for a card that was marked wrong but was really
+// known: a slip of the arrow key in Flashcards, or a Write answer phrased differently.
+// The same button undoes it. The session was already saved, so this revises the
+// stored answer on the server as well as the score shown here.
+async function reviseResult(cardId, row, button) {
+  const correct = !resultsAnswers.get(cardId);
+  button.disabled = true;
+  try {
+    await api('POST', '/api/progress/revise', { cardId, correct });
+  } catch {
+    button.disabled = false;
+    return showToast('That card could not be changed. Try again in a moment.', 'warn');
+  }
+  button.disabled = false;
+  resultsAnswers.set(cardId, correct);
+  row.classList.toggle('missed-row-revised', correct);
+  button.textContent = correct ? 'Undo' : 'I got this right';
+  renderResultsScore();
+  // Keep the missed-cards filter on the mode screen in step with the change.
+  api('GET', `/api/sets/${currentSetId}`).then(({ set }) => { currentSet = set; }).catch(() => {});
 }
 
 // Restudy just the cards missed in the session that produced this results screen,

@@ -459,9 +459,15 @@ th.col-def { color: var(--col-def-text) !important; }
 .score { font-size: 1.6rem; font-weight: 600; color: var(--accent); margin: 0.5rem 0; }
 .missed-list { display: flex; flex-direction: column; gap: 0.5rem; }
 .missed-row {
+  display: flex; align-items: center; gap: 0.75rem;
   background: var(--surface); border: 1px solid var(--border);
   border-left: 3px solid var(--negative); border-radius: 6px; padding: 0.7rem 0.9rem;
 }
+.missed-text { flex: 1; min-width: 0; }
+.missed-toggle { flex: none; }
+/* Changed to correct with "I got this right": kept in the list so it can be undone. */
+.missed-row-revised { border-left-color: var(--positive); }
+.missed-row-revised .missed-text { opacity: 0.6; }
 .missed-term { font-weight: 600; overflow-wrap: anywhere; }
 .missed-def { color: var(--text-muted); font-size: 0.88rem; overflow-wrap: anywhere; }
 

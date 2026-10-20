@@ -22,7 +22,9 @@ auto-populated from a spreadsheet upload.
   text changes and ticking cards for deletion, committed in one save.
 * **Keyboard driven** — flip cards runs on the four arrow keys, **s** stars, and **Enter** moves to
   the next card once an answer has been given.
-* **Progress tracking** — per-card results, so missed cards can be restudied.
+* **Progress tracking** — per-card results, so missed cards can be restudied. A card marked wrong
+  can be changed to correct from the results screen with **I got this right** (and undone), which
+  fixes the score and the saved progress.
 * **Per-user settings** — reached from the profile button at the top right: theme, whether a
   correct answer moves on by itself, and sign out. Settings are stored on the account, so they
   follow the user between devices rather than living in one browser.
