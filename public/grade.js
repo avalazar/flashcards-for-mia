@@ -83,6 +83,59 @@ function gradeAnswer(given, expected) {
   return { correct: false, close: false, expected };
 }
 
+// ── Answer similarity, for choosing quiz distractors ─────────────────────────
+//
+// A wrong option that shares words with the right one ("the powerhouse of the cell" /
+// "the control centre of the cell") has to be read properly to rule out, where a random
+// one can be dismissed at a glance. This scores how alike two answers *look*: shared
+// words and word families, shared letter runs, and similar length. It knows nothing
+// about meaning, so "big" and "large" score as unrelated.
+
+// Too common to say anything about whether two answers are alike.
+const SIMILARITY_STOPWORDS = new Set([
+  'a', 'an', 'the', 'of', 'to', 'in', 'on', 'for', 'and', 'or', 'is', 'are', 'was',
+  'be', 'by', 'with', 'as', 'at', 'it', 'its', 'that', 'this', 'from', 'which', 'who', 'not',
+]);
+
+// Words are cut to their first six letters after folding plurals, which is crude but
+// puts a word family together: "photosynthesis" and "photosynthetic" both become
+// "photos". The false friends it creates ("informal" / "information") look alike too,
+// so they still make fair distractors.
+function similarityStem(word) {
+  return singularizeWord(word).slice(0, 6);
+}
+
+// The parts of an answer that similarity compares, worked out once per answer text.
+function answerFeatures(text) {
+  const norm = normalizeAnswer(text);
+  const words = new Set(norm.split(' ')
+    .filter(w => w && !SIMILARITY_STOPWORDS.has(w))
+    .map(similarityStem));
+  // Letter trigrams catch one-word terms that share no whole word ("mitosis" /
+  // "meiosis"). Padded so the start and end of the answer count too.
+  const grams = new Set();
+  const padded = ` ${norm} `;
+  for (let i = 0; i + 3 <= padded.length; i++) grams.add(padded.slice(i, i + 3));
+  return { words, grams, length: norm.length };
+}
+
+function overlap(a, b) {
+  let shared = 0;
+  for (const item of a) if (b.has(item)) shared++;
+  return shared;
+}
+
+// 0 (nothing alike) to 1 (the same). Takes features from answerFeatures().
+function answerSimilarity(a, b) {
+  const wordScore = a.words.size && b.words.size
+    ? overlap(a.words, b.words) / Math.sqrt(a.words.size * b.words.size) : 0;
+  const gramScore = a.grams.size + b.grams.size
+    ? (2 * overlap(a.grams, b.grams)) / (a.grams.size + b.grams.size) : 0;
+  const lengthScore = Math.max(a.length, b.length)
+    ? Math.min(a.length, b.length) / Math.max(a.length, b.length) : 0;
+  return 0.6 * wordScore + 0.3 * gramScore + 0.1 * lengthScore;
+}
+
 // Fisher-Yates. Returns a new array; the caller's card order is left alone.
 function shuffled(items) {
   const out = items.slice();

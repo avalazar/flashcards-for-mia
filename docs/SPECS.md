@@ -102,7 +102,12 @@ Shipped modes:
   phrased differently cannot force busywork. The verdict is shown on the card itself rather than in
   a block below it, and all three states render the same three pieces (card, input, action row), so
   the button being aimed at never moves.
-* **Multiple choice** - four options, distractors sampled from other cards in the same set.
+* **Multiple choice** - four options, distractors drawn from other cards in the same set. The wrong
+  options favour answers that look like the right one (shared words and word families, shared
+  letter runs, similar length; see `answerSimilarity` in `grade.js`), so ruling them out takes
+  understanding rather than a glance. The three are picked at random from the six closest, so a
+  card does not always get the same options, and random cards fill in when too few are alike.
+  Similarity is by appearance only; answers that mean the same in different words are not matched.
 
 Modes are labelled with one word each -- Flashcards, Write, Quiz -- and an icon.
 

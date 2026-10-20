@@ -12,7 +12,8 @@ auto-populated from a spreadsheet upload.
   the term and which is the definition. Handles junk columns, blank rows, multiple sheets, and files
   that were not laid out for this app.
 * **Three study modes** — Flashcards (playable with just the four arrow keys), Write (forgiving
-  typo matching, and a wrong answer must be written out correctly before moving on), and Quiz. Shuffle, "only cards I have missed", and a choice of which side is the question — with a
+  typo matching, and a wrong answer must be written out correctly before moving on), and Quiz (whose wrong
+  options are the answers in the set that look most like the right one, so they take real thought). Shuffle, "only cards I have missed", and a choice of which side is the question — with a
   preview of a real card from the set so the setting is obvious before starting.
 * **Starring** — star a card from the corner of the card while studying (click it or press **s**),
   from the card list, or from the set editor, then study only starred cards. Editing a set preserves

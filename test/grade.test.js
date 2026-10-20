@@ -10,7 +10,8 @@ const vm = require('vm');
 const context = { console };
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'grade.js'), 'utf8'), context);
-const { gradeAnswer, normalizeAnswer, shuffled, allowedEdits, singularize } = context;
+const { gradeAnswer, normalizeAnswer, shuffled, allowedEdits, singularize,
+  answerFeatures, answerSimilarity } = context;
 
 // Short answers are the case that actually bit: a set of one-word cards ("blood",
 // "leaf", "sky") got no typo tolerance at all under a ratio-only rule.
@@ -102,4 +103,43 @@ test('shuffled keeps every element and leaves the input alone', () => {
   const out = shuffled(input);
   assert.deepEqual(input, [1, 2, 3, 4, 5, 6, 7, 8], 'input must not be mutated');
   assert.deepEqual(out.slice().sort((a, b) => a - b), input);
+});
+
+const similarity = (a, b) => answerSimilarity(answerFeatures(a), answerFeatures(b));
+
+test('answers sharing words score above unrelated ones', () => {
+  const right = 'the powerhouse of the cell';
+  assert.ok(similarity(right, 'the control centre of the cell') >
+            similarity(right, 'a large body of water'));
+  // Filler words alone do not make two answers alike.
+  assert.ok(similarity('the speed of light', 'the history of rome') < 0.2);
+});
+
+test('word families and look-alike terms count as similar', () => {
+  assert.ok(similarity('photosynthesis', 'photosynthetic pigment') >= 0.2);
+  assert.ok(similarity('mitosis', 'meiosis') > similarity('mitosis', 'osmosis cell wall'));
+  assert.equal(Math.round(similarity('cell membrane', 'cell membrane') * 100), 100);
+});
+
+test('quiz options favour the answers most like the right one', () => {
+  const ctx = { console };
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'grade.js'), 'utf8')
+    + '\nvar STUDY_MODES = [];\n'
+    + fs.readFileSync(path.join(__dirname, '..', 'public', 'modes', 'choice.js'), 'utf8')
+    + '\nthis.quiz = STUDY_MODES[0];', ctx);
+  const quiz = ctx.quiz;
+  quiz.featureCache = new Map();
+
+  const alike = ['the control centre of the cell', 'the outer wall of the cell', 'stores energy in the cell'];
+  const unrelated = ['a large body of water', 'an ancient roman road', 'a type of cloud', 'a musical scale'];
+  for (let i = 0; i < 20; i++) {
+    const picked = quiz.pickDistractors('the powerhouse of the cell', [...unrelated, ...alike]);
+    assert.equal(picked.length, 3);
+    assert.deepEqual(picked.slice().sort(), alike.slice().sort());
+  }
+
+  // With nothing alike, it still fills every option from the rest.
+  const picked = quiz.pickDistractors('photosynthesis', unrelated);
+  assert.equal(new Set(picked).size, 3);
 });

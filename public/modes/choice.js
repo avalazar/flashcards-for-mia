@@ -1,5 +1,6 @@
-// Multiple choice: distractors are sampled from other cards in the same set, which
-// keeps the wrong answers plausible and on-topic.
+// Multiple choice: distractors are drawn from other cards in the same set, favouring
+// the answers that look most like the right one, which keeps them plausible and makes
+// each pick take some thought.
 const CHOICE_COUNT = 4;
 
 STUDY_MODES.push({
@@ -25,6 +26,7 @@ STUDY_MODES.push({
     this.index = 0;
     this.picked = null;
     this.advanceTimer = null;
+    this.featureCache = new Map();
     this.buildOptions();
     this.render();
 
@@ -78,16 +80,50 @@ STUDY_MODES.push({
 
     const seen = new Set();
     const unique = [];
-    for (const text of shuffled(pool)) {
+    for (const text of pool) {
       const key = normalizeAnswer(text);
       if (seen.has(key)) continue;
       seen.add(key);
       unique.push(text);
-      if (unique.length >= CHOICE_COUNT - 1) break;
     }
 
-    this.options = shuffled([correct, ...unique]);
+    this.options = shuffled([correct, ...this.pickDistractors(correct, unique)]);
     this.correctAnswer = correct;
+  },
+
+  // Prefers wrong answers that look like the right one, since telling apart two
+  // answers that share words is what shows a card is really understood. The pick is
+  // random among a shortlist of the closest, so a card does not get the same three
+  // options every time, and random cards fill in when too few are alike.
+  pickDistractors(correct, candidates) {
+    const wanted = CHOICE_COUNT - 1;
+    const target = this.features(correct);
+    const scored = candidates
+      .map(text => ({ text, score: answerSimilarity(target, this.features(text)) }))
+      .sort((a, b) => b.score - a.score);
+
+    const shortlist = scored
+      .slice(0, wanted * 2)
+      .filter(s => s.score >= this.similarFloor)
+      .map(s => s.text);
+    const chosen = shuffled(shortlist).slice(0, wanted);
+    const rest = shuffled(candidates.filter(text => !chosen.includes(text)));
+    return chosen.concat(rest.slice(0, wanted - chosen.length));
+  },
+
+  // Below this, two answers have nothing real in common; length alone can reach 0.1
+  // and unrelated sentences share a few letter runs by chance.
+  similarFloor: 0.2,
+
+  // Features are cached per answer text, since every card in a session compares
+  // against the same pool.
+  features(text) {
+    let f = this.featureCache.get(text);
+    if (!f) {
+      f = answerFeatures(text);
+      this.featureCache.set(text, f);
+    }
+    return f;
   },
 
   pick(option) {
